@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title id="pageTitle">JMusic Home</title>
+        <!-- Bulma CSS -->
+        <link rel="stylesheet" href="/css/bulma.min.css"/>
+        <link rel="stylesheet" href="https://unpkg.com/primeicons@6.0.1/primeicons.css">
+        <script src="/js/htmx.min.js"></script>
+        <link rel="icon" type="image/x-icon" href="logo.png">
+
+        <style>
+            #songListContainer::-webkit-scrollbar {
+                width: 6px;
+            }
+            #songListContainer::-webkit-scrollbar-thumb {
+                background: #888;
+                border-radius: 3px;
+            }
+            #songListContainer::-webkit-scrollbar-thumb:hover {
+                background: #aaa;
+            }
+        </style> 
+    </head>
+    <body>
+
+        <!-- Persistent Audio Element -->
+        <audio id="audioPlayer" preload="metadata"></audio>
+
+        <!-- Navbar -->
+        <nav class="navbar is-dark" role="navigation">
+            <div class="navbar-brand">
+                <a class="navbar-item" href="/index.html"><strong>JMusic</strong></a>
+                <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navMenu">
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                </a>
+            </div>
+            <div id="navMenu" class="navbar-menu">
+                <div class="navbar-end">
+                    <a class="navbar-item" href="/index.html">Home</a>
+                    <a class="navbar-item" href="/browse.html">Browse</a>
+                    <a class="navbar-item" href="/settings.html">Settings</a>
+                </div>
+            </div>
+        </nav>
+
+        <section class="section m-0 p-1">
+            <div class="columns">
+                <!-- Playlist Sidebar -->
+                <div class="column is-2" id="playlistSidebar">
+                    <div class="box">
+                        <button class="button is-primary is-fullwidth"
+                                hx-get="/api/music/ui/playlists-fragment"
+                                hx-target="#sidebarPlaylistList"
+                                hx-swap="innerHTML">
+                            <i class="pi pi-plus"></i> Create Playlist
+                        </button>
+                        <hr/>
+                        <ul id="sidebarPlaylistList" class="menu-list"
+                            hx-get="/api/music/ui/playlists-fragment"
+                            hx-trigger="load"
+                            hx-swap="innerHTML">
+                            <!-- Sidebar playlists loaded via HTMX -->
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="column is-10" id="playlistView">
+                    <div class="box">
+                        <p id="playlistTitle" class="title is-4">All Songs</p>
+                        <div id="songListContainer" style="max-height: calc(100vh - 300px); overflow-y: auto;">
+                            <table id="songTable" class="table is-fullwidth is-hoverable is-striped"
+                                   hx-get="/api/music/ui/songs-fragment"
+                                   hx-trigger="load"
+                                   hx-swap="innerHTML">
+                                <thead>
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Artist</th>
+                                        <th>Duration</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Songs populated via HTMX -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div> 
+        </section>
+
+        <!-- Static Music Bar -->
+        <div id="musicBar"
+             class="player-panel columns is-vcentered"
+             style="position:fixed;bottom:0;width:100%;background:#1c1c1c;z-index:999;">
+            <div class="column m-0 p-1">
+                <div class="columns is-vcentered is-centered">
+                    <div class="column is-2 has-text-centered">
+                        <p id="songTitle" class="has-text-white is-size-6">Loading...</p>
+                    </div>
+                    <div class="column">
+                        <div class="columns is-vcentered is-centered">
+                            <div class="column is-narrow has-text-centered">
+                                <button id="shuffleBtn" title="Shuffle">
+                                    <i id="shuffleIcon" class="pi pi-sort-alt"></i>
+                                </button>
+                            </div>
+                            <div class="column is-narrow has-text-centered">
+                                <button id="prevBtn" title="Previous">
+                                    <i class="pi pi-step-backward"></i>
+                                </button>
+                            </div>
+                            <div class="column is-narrow has-text-centered">
+                                <button id="playPauseBtn">
+                                    <i id="playPauseIcon" class="pi pi-play"></i>
+                                </button>
+                            </div>
+                            <div class="column is-narrow has-text-centered">
+                                <button id="nextBtn" title="Next">
+                                    <i class="pi pi-step-forward"></i>
+                                </button>
+                            </div>
+                            <div class="column is-narrow has-text-centered">
+                                <button id="repeatBtn" title="Repeat">
+                                    <i id="repeatIcon" class="pi pi-refresh"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="columns is-vcentered is-centered">
+                    <div class="column is-2"></div>
+                    <div class="column">
+                        <div class="columns m-0 p-0">
+                            <div class="column is-narrow m-0">
+                                <span id="currentTime" class="has-text-white">0:00</span>
+                            </div>
+                            <div class="column m-0">
+                                <input type="range" min="0" max="100" value="0"
+                                       style="width:100%"
+                                       name="seconds"/>
+                            </div>
+                            <div class="column is-narrow m-0">
+                                <span id="totalTime" class="has-text-white">0:00</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-2 has-text-centered">
+                        <input type="range" min="0" max="100" value="80" name="level"/>
+                    </div>
+                </div>
+            </div>
+        </div> 
+
+        <script src="/js/musicBar.js"></script>
+
+    </body>
+</html>

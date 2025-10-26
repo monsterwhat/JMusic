@@ -1,0 +1,55 @@
+package Services;
+
+import Models.Song;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.transaction.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.List;
+
+@ApplicationScoped
+public class SongService {
+
+    @PersistenceContext
+    private EntityManager em;
+
+    @Transactional
+    public void save(Song song) {
+        if (song.id == null || em.find(Song.class, song.id) == null) {
+            em.persist(song);
+        } else {
+            em.merge(song);
+        }
+    }
+
+    @Transactional
+    public void delete(Song song) {
+        if (song != null) {
+            Song managed = em.contains(song) ? song : em.merge(song);
+            em.remove(managed);
+        }
+    }
+
+    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    public Song findSongInNewTx(Long id) {
+        return em.find(Song.class, id);
+    }
+
+    public Song find(Long id) {
+        return em.find(Song.class, id);
+    }
+
+    public List<Song> findAll() {
+        return em.createQuery("SELECT s FROM Song s", Song.class)
+                .getResultList();
+    }
+
+    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    public void persistSongInNewTx(Song song) {
+        if (song.id == null || em.find(Song.class, song.id) == null) {
+            em.persist(song);
+        } else {
+            em.merge(song);
+        }
+    }
+}
