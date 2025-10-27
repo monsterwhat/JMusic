@@ -1,52 +1,50 @@
 const audio = document.getElementById('audioPlayer');
 
-// ---------------- Load persisted state ----------------
-const savedSongId = localStorage.getItem("currentSongId");
-const savedVolume = parseFloat(localStorage.getItem("musicVolume") ?? 0.8);
-const savedTime = parseFloat(localStorage.getItem("currentTime") ?? "0");
-
-
 // ---------------- State ----------------
 const musicState = {
-    currentSongId: savedSongId,
+    currentSongId: null,
     songName: "Loading...",
     artist: "Unknown Artist",
-    playing: true,
-    currentTime: savedTime,
+    playing: false,
+    currentTime: 0,
     duration: 0,
-    volume: savedVolume,
+    volume: 0.8,
     shuffleEnabled: false,
-    repeatEnabled: false,
-    userInitiated: false
+    repeatEnabled: false
 };
 
 let draggingSeconds = false;
 let draggingVolume = false;
-let userSetPlayback = false;
 
 audio.volume = musicState.volume;
 
 // ---------------- Helpers ----------------
 const formatTime = s => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
-const logState = action => console.log("[MUSIC BAR] " + action, JSON.parse(JSON.stringify(musicState)));
 
 function updateMusicBar() {
     const {songName, artist, playing, currentTime, duration, volume, shuffleEnabled, repeatEnabled} = musicState;
-    document.getElementById('songTitle').innerText =
-            `${musicState.songName ?? "Unknown Title"} — ${musicState.artist ?? "Unknown Artist"}`;
+
+    const titleEl = document.getElementById('songTitle');
+    const artistEl = document.getElementById('songArtist');
+    if (titleEl)
+        titleEl.innerText = songName ?? "Unknown Title";
+    if (artistEl)
+        artistEl.innerText = artist ?? "Unknown Artist";
 
     document.getElementById('playPauseIcon').className = playing
-            ? "pi pi-pause button is-warning is-rounded"
-            : "pi pi-play button is-success is-rounded";
-    document.getElementById('currentTime').innerText = formatTime(currentTime ?? 0);
-    document.getElementById('totalTime').innerText = formatTime(duration ?? 0);
+            ? "pi pi-pause button is-warning is-rounded is-large"
+            : "pi pi-play button is-success is-rounded is-large";
+
+    document.getElementById('currentTime').innerText = formatTime(currentTime);
+    document.getElementById('totalTime').innerText = formatTime(duration);
 
     const timeSlider = document.querySelector('input[name="seconds"]');
     if (timeSlider) {
-        timeSlider.max = duration ?? 0;
+        timeSlider.max = duration;
         if (!draggingSeconds)
-            timeSlider.value = currentTime ?? 0;
+            timeSlider.value = currentTime;
     }
+
     const volumeSlider = document.querySelector('input[name="level"]');
     if (volumeSlider && !draggingVolume)
         volumeSlider.value = volume * 100;
@@ -54,6 +52,7 @@ function updateMusicBar() {
     document.getElementById('shuffleIcon').className = shuffleEnabled
             ? "pi pi-sort-alt-slash has-text-success"
             : "pi pi-sort-alt";
+
     document.getElementById('repeatIcon').className = repeatEnabled
             ? "pi pi-refresh pi-spin has-text-success"
             : "pi pi-refresh";
@@ -63,70 +62,75 @@ function updateMusicBar() {
 audio.ontimeupdate = () => {
     if (!draggingSeconds) {
         musicState.currentTime = audio.currentTime;
-        localStorage.setItem("currentTime", audio.currentTime);
-        updateMusicBar();
         if (!audio._lastSeekSent || Math.abs(audio.currentTime - audio._lastSeekSent) > 0.3) {
             sendWS({action: 'seek', value: audio.currentTime});
             audio._lastSeekSent = audio.currentTime;
         }
-    }
-};
-audio.onplay = () => {
-    if (userSetPlayback) {
-        musicState.playing = true;
         updateMusicBar();
-        sendWS({action: 'play'});
     }
 };
-audio.onpause = () => {
-    if (userSetPlayback) {
-        musicState.playing = false;
-        updateMusicBar();
-        sendWS({action: 'pause'});
-    }
+
+audio.onended = () => {
+    // tell backend to go to next song
+    sendWS({action: 'next'});
+
+    // immediately fetch the new current song from backend
+    fetch('/api/music/current')
+            .then(r => r.json())
+            .then(data => {
+                if (!data || !data.id)
+                    return;
+
+                // update the audio element with new song
+                UpdateAudioSource(data.id, true, data.currentTime ?? 0);
+
+                // force UI refresh
+                refreshSongTable();
+            })
+            .catch(console.error);
 };
-audio.onloadedmetadata = () => {
-    musicState.duration = audio.duration;
-    updateMusicBar();
-};
-audio.onended = () => sendWS({action: 'next'});
+
 
 // ---------------- Update Audio Source ----------------
-function UpdateAudioSource(songId, play = false) {
+function UpdateAudioSource(songId, play = false, backendTime = 0) {
     if (!songId)
         return;
 
     const sameSong = String(musicState.currentSongId) === String(songId);
-    const alreadyLoaded = audio.src && audio.src.includes(`/api/music/stream/${songId}`);
-
-    // ✅ Skip reloading same song
-    if (sameSong && alreadyLoaded) {
-        if (play && audio.paused)
-            audio.play().catch(console.warn);
-        return;
-    }
-
-    // Update state
     musicState.currentSongId = songId;
-    localStorage.setItem("currentSongId", songId);
     musicState.songName = "Loading...";
     musicState.artist = "Loading...";
+    musicState.currentTime = backendTime ?? 0;
+    musicState.duration = 0;
     updateMusicBar();
-    updatePageTitle(null); // show "JMusic Home" while loading
+    updatePageTitle(null);
 
-    // ✅ Reload only if needed
-    if (!alreadyLoaded) {
-        audio.src = `/api/music/stream/${songId}`;
-        audio.load();
-    }
+    audio.src = `/api/music/stream/${songId}`;
+    audio.load();
+    audio.volume = musicState.volume;
+
+    audio.onloadedmetadata = () => {
+        audio.currentTime = musicState.currentTime; // set backend time
+        if (play)
+            audio.play().catch(console.warn);
+        musicState.duration = audio.duration;
+        updateMusicBar();
+    };
 
     fetch(`/api/music/current`)
             .then(r => r.json())
             .then(data => {
                 musicState.songName = data?.title ?? "Unknown Title";
                 musicState.artist = data?.artist ?? "Unknown Artist";
+
+                // Always overwrite currentTime if backend sent it
+                if (data?.currentTime !== undefined) {
+                    musicState.currentTime = data.currentTime;
+                    if (!draggingSeconds)
+                        audio.currentTime = musicState.currentTime;
+                }
+
                 updateMusicBar();
-                // ✅ update page title after song loads
                 updatePageTitle({name: musicState.songName, artist: musicState.artist});
             })
             .catch(() => {
@@ -135,10 +139,8 @@ function UpdateAudioSource(songId, play = false) {
                 updateMusicBar();
                 updatePageTitle(null);
             });
-
-    if (play)
-        audio.play().catch(e => console.warn("Audio play blocked", e));
 }
+
 
 // ---------------- WebSocket ----------------
 let ws;
@@ -164,11 +166,11 @@ function handleWSMessage(msg) {
     musicState.shuffleEnabled = state.shuffleEnabled ?? musicState.shuffleEnabled;
     musicState.repeatEnabled = state.repeatEnabled ?? musicState.repeatEnabled;
     musicState.volume = state.volume ?? musicState.volume;
+    audio.volume = musicState.volume; // make sure volume is applied immediately
 
     if (songChanged) {
-        UpdateAudioSource(state.currentSongId, state.playing);
-        musicState.currentTime = state.currentTime ?? 0;
-        audio.currentTime = musicState.currentTime;
+        UpdateAudioSource(state.currentSongId, state.playing, state.currentTime ?? 0);
+        musicState.playing = true;
         refreshSongTable();
     } else if (!draggingSeconds && state.currentTime !== undefined) {
         audio.currentTime = state.currentTime;
@@ -177,7 +179,7 @@ function handleWSMessage(msg) {
 
     if (playChanged) {
         musicState.playing = state.playing;
-        if (state.playing && musicState.userInitiated)
+        if (state.playing)
             audio.play().catch(console.error);
         else
             audio.pause();
@@ -187,10 +189,8 @@ function handleWSMessage(msg) {
 }
 
 function sendWS(obj) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (ws && ws.readyState === WebSocket.OPEN)
         ws.send(JSON.stringify(obj));
-        console.log("[WS] Sent:", obj);
-    }
 }
 
 // ---------------- Controls ----------------
@@ -198,16 +198,15 @@ function bindTimeSlider() {
     const slider = document.querySelector('input[name="seconds"]');
     if (!slider)
         return;
+
     slider.onmousedown = slider.ontouchstart = () => draggingSeconds = true;
     slider.onmouseup = slider.ontouchend = e => {
         draggingSeconds = false;
         const sec = parseFloat(e.target.value);
         musicState.currentTime = sec;
         audio.currentTime = sec;
-        localStorage.setItem("currentTime", sec);
         sendWS({action: 'seek', value: sec});
         updateMusicBar();
-        logState("Seek performed");
     };
     slider.oninput = e => {
         if (draggingSeconds)
@@ -219,13 +218,13 @@ function bindVolumeSlider() {
     const slider = document.querySelector('input[name="level"]');
     if (!slider)
         return;
+
     slider.onmousedown = slider.ontouchstart = () => draggingVolume = true;
     slider.onmouseup = slider.ontouchend = () => {
         draggingVolume = false;
         const vol = parseInt(slider.value, 10) / 100;
         musicState.volume = vol;
         audio.volume = vol;
-        localStorage.setItem("musicVolume", vol);
         sendWS({action: 'volume', value: vol});
         updateMusicBar();
     };
@@ -233,32 +232,35 @@ function bindVolumeSlider() {
         const vol = parseInt(slider.value, 10) / 100;
         musicState.volume = vol;
         audio.volume = vol;
-        localStorage.setItem("musicVolume", vol);
         sendWS({action: 'volume', value: vol});
     };
 }
 
 function bindPlaybackButtons() {
-    const btn = document.getElementById('playPauseBtn');
-    btn.onclick = () => {
-        musicState.playing = !musicState.playing;
-        musicState.userInitiated = true;
-        userSetPlayback = true;
-        if (musicState.playing)
-            audio.play().catch(console.error);
-        else
-            audio.pause();
-        updateMusicBar();
-        sendWS({action: 'toggle-play'});
-        logState("Play/Pause toggled");
-        setTimeout(() => userSetPlayback = false, 200);
+    const apiPost = (path) => fetch(`/api/music/${path}`, {method: 'POST'});
+
+    document.getElementById('playPauseBtn').onclick = async () => {
+        // Toggle between play/pause depending on current state
+        const currentSong = await fetch('/api/music/current').then(r => r.json());
+        apiPost('toggle-play');
     };
-    document.getElementById('prevBtn').onclick = () => sendWS({action: 'previous'});
-    document.getElementById('nextBtn').onclick = () => sendWS({action: 'next'});
-    document.getElementById('shuffleBtn').onclick = () => sendWS({action: 'shuffle'});
-    document.getElementById('repeatBtn').onclick = () => sendWS({action: 'repeat'});
+
+    document.getElementById('prevBtn').onclick = () => apiPost('previous');
+    document.getElementById('nextBtn').onclick = () => apiPost('next');
+    document.getElementById('shuffleBtn').onclick = async () => {
+        const currentSong = await fetch('/api/music/current').then(r => r.json());
+        // Toggle shuffle based on current state (you might want to store it separately)
+        apiPost(`shuffle/${!currentSong?.shuffle}`);
+    };
+    document.getElementById('repeatBtn').onclick = async () => {
+        const currentSong = await fetch('/api/music/current').then(r => r.json());
+        // Toggle repeat based on current state
+        apiPost(`repeat/${!currentSong?.repeat}`);
+    };
 }
 
+
+// ---------------- UI ----------------
 function refreshSongTable() {
     htmx.ajax('GET', '/api/music/ui/songs-fragment', {target: '#songTable tbody', swap: 'outerHTML'});
 }
@@ -270,9 +272,8 @@ function updatePageTitle(song) {
         return;
     }
     document.getElementById('pageTitle').innerText = `${song.name} — ${song.artist}`;
-    document.title = `${song.name} — ${song.artist}`;
+    document.title = `${song.name} : ${song.artist}`;
 }
-
 
 function bindMusicBarControls() {
     bindTimeSlider();
@@ -284,16 +285,4 @@ function bindMusicBarControls() {
 document.addEventListener('DOMContentLoaded', () => {
     bindMusicBarControls();
     connectWS();
-
-    if (musicState.currentSongId) {
-        // ✅ restore source on reload
-        UpdateAudioSource(musicState.currentSongId, false);
-
-        // ✅ restore position
-        audio.currentTime = musicState.currentTime || 0;
-
-        audio.play().catch(console.warn);
-    } else {
-        console.log("[MUSIC BAR] No saved song to restore");
-    }
 });

@@ -88,11 +88,11 @@
                             <goal>generate-code</goal>
                         </goals>
                     </execution>
-                </executions>
+                </executions> 
             </plugin>
         </plugins>
     </build>
-    
+
     <profiles>
         <profile>
             <id>native</id>
@@ -116,7 +116,6 @@
                         </executions>
                         <configuration>
                             <nativeImageBuildArgs>
-                                <!-- Optional: additional flags -->
                                 <arg>-H:+ReportExceptionStackTraces</arg>
                                 <arg>-J-Xmx4G</arg>
                             </nativeImageBuildArgs>
@@ -125,8 +124,8 @@
                 </plugins>
             </build>
         </profile>
-
     </profiles>
+
 
     
 </project>

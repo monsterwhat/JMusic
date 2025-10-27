@@ -1,5 +1,5 @@
 package Models;
- 
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
@@ -19,9 +19,11 @@ public class PlaybackState {
     @Id
     private Long id = 1L; // singleton
 
-    private boolean playing; 
-    private Long currentSongId;  
+    private boolean playing;
+    private Long currentSongId;
     private Long currentPlaylistId;
+    private String songName;
+    private String artistName;
     private double currentTime;
     private float volume;
     private boolean shuffleEnabled;

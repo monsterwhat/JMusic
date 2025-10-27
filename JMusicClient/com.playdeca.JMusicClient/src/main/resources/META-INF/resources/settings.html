@@ -2,149 +2,165 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title id="pageTitle">JMusic Settings</title> 
+        <title id="pageTitle">JMusic Settings</title>
+
+        <!-- Bulma CSS -->
         <link rel="stylesheet" href="/css/bulma.min.css"/>
         <link rel="stylesheet" href="https://unpkg.com/primeicons@6.0.1/primeicons.css">
+
+        <!-- HTMX -->
         <script src="/js/htmx.min.js"></script>
+
         <link rel="icon" type="image/x-icon" href="logo.png">
 
+        <style>
+            html, body {
+                height: 100%;
+            }
+
+            .hero {
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .hero-body {
+                flex-grow: 1;
+                overflow: auto;
+            }
+
+            #logsPanel::-webkit-scrollbar {
+                width: 6px;
+            }
+            #logsPanel::-webkit-scrollbar-thumb {
+                background: #888;
+                border-radius: 3px;
+            }
+            #logsPanel::-webkit-scrollbar-thumb:hover {
+                background: #aaa;
+            }
+        </style>
     </head>
     <body>
 
-        <!-- Persistent Audio Element -->
         <audio id="audioPlayer" preload="metadata"></audio>
 
-        <nav class="navbar is-dark" role="navigation">
-            <div class="navbar-brand">
-                <a class="navbar-item" href="/index.html"><strong>JMusic</strong></a>
-                <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navMenu">
-                    <span aria-hidden="true"></span>
-                    <span aria-hidden="true"></span>
-                    <span aria-hidden="true"></span>
-                </a>
-            </div>
-            <div id="navMenu" class="navbar-menu">
-                <div class="navbar-end">
-                    <a class="navbar-item" href="/index.html">Home</a>
-                    <a class="navbar-item" href="/browse.html">Browse</a>
-                    <a class="navbar-item" href="/settings.html">Settings</a>
-                </div>
-            </div>
-        </nav>
+        <!-- Hero Layout -->
+        <section class="hero is-dark is-fullheight">
 
-        <section class="section">
-            <div class="container">
-                <h1 class="title is-3">Settings</h1>
+            <!-- Hero Head: Navbar -->
+            <div class="hero-head">
+                <nav class="navbar is-dark" role="navigation">
+                    <div class="navbar-brand">
+                        <a class="navbar-item" href="/index.html"><strong>JMusic</strong></a>
+                        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navMenu">
+                            <span aria-hidden="true"></span>
+                            <span aria-hidden="true"></span>
+                            <span aria-hidden="true"></span>
+                        </a>
+                    </div>
+                    <div id="navMenu" class="navbar-menu">
+                        <div class="navbar-end">
+                            <a class="navbar-item" href="/index.html">Home</a>
+                            <a class="navbar-item" href="/browse.html">Browse</a>
+                            <a class="navbar-item" href="/settings.html">Settings</a>
+                        </div>
+                    </div>
+                </nav>
+            </div>
 
-                <div class="box">
-                    <div class="field">
-                        <label class="label">Music Library Folder</label>
-                        <div class="control">
-                            <p id="musicLibraryPath" class="has-text-weight-semibold">(not set)</p>
-                            <button id="resetLibrary" class="button is-link">Reset to Default</button>
+            <!-- Hero Body: Settings Content -->
+            <div class="hero-body p-0 m-0">
+                <div class="columns m-1 p-0 is-multiline" style="width:100%"> 
+                    <!-- Main Settings Area -->
+                    <div class="column is-full ml-0 pl-0 has-text-centered">
+                        <div class="box">
+                            <h1 class="title is-4 ">Settings</h1>
+
+                            <div class="field">
+                                <label class="label">Music Library Folder</label>
+                                <div class="control is-flex is-align-items-center is-justify-content-space-between">
+                                    <p id="musicLibraryPath" class="has-text-weight-semibold">(not set)</p>
+                                    <button id="resetLibrary" class="button is-link">Reset to Default</button>
+                                </div>
+                            </div>
+
+                            <div class="field mt-5">
+                                <button id="scanLibrary" class="button is-primary">Scan Library</button>
+                                <button id="clearLogs" class="button is-danger">Clear Logs</button>
+                                <button id="clearSongs" class="button is-warning">Clear Songs DB</button>
+                            </div>
+                        </div> 
+                    </div>
+
+                    <!-- Sidebar (empty placeholder for layout consistency) -->
+                    <div class="column is-full ml-0 pl-0 box">
+                        <h2 class="title is-4 has-text-centered">Logs</h2>
+                        <div style="max-height: 200px; overflow-y: auto;" id="logsPanel">
+                            <!-- JS will populate logs here -->
                         </div>
                     </div>
 
-                    <div class="field mt-5">
-                        <button id="scanLibrary" class="button is-primary">Scan Library</button>
-                        <button id="clearLogs" class="button is-danger">Clear Logs</button>
+                </div>
+            </div>
+
+            <!-- Hero Foot: Music Bar -->
+            <div class="hero-foot box py-3">
+                <nav class="level is-mobile">
+
+                    <!-- LEFT: Song Info -->
+                    <div class="level-left">
+                        <div class="level-item">
+                            <div>
+                                <p id="songTitle" class="has-text-white has-text-weight-semibold is-size-6">Loading...</p>
+                                <p id="songArtist" class="has-text-grey-light is-size-7">Unknown Artist</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <button id="clearSongs" class="button is-warning">Clear Songs DB</button>
+                    <!-- CENTER: Controls + Progress -->
+                    <div class="level-item has-text-centered is-flex is-flex-direction-column is-align-items-center">
+                        <div class="buttons are-small mb-2">
+                            <button id="shuffleBtn" title="Shuffle"><i id="shuffleIcon" class="pi pi-sort-alt"></i></button>
+                            <button id="prevBtn" title="Previous"><i class="pi pi-step-backward"></i></button>
+                            <button id="playPauseBtn" title="Play/Pause"><i id="playPauseIcon" class="pi pi-play"></i></button>
+                            <button id="nextBtn" title="Next"><i class="pi pi-step-forward"></i></button>
+                            <button id="repeatBtn" title="Repeat"><i id="repeatIcon" class="pi pi-refresh"></i></button>
+                        </div>
+                        <div class="is-flex is-align-items-center is-justify-content-center" style="width: 100%;">
+                            <span id="currentTime" class="has-text-grey-light is-size-7 mr-2">0:00</span>
+                            <input type="range" min="0" max="100" value="0" style="width:100%" name="seconds"/>
+                            <span id="totalTime" class="has-text-grey-light is-size-7 ml-2">0:00</span>
+                        </div>
+                    </div>
 
-                </div>
+                    <!-- RIGHT: Volume -->
+                    <div class="level-right">
+                        <div class="level-item">
+                            <div class="is-flex is-align-items-center">
+                                <i class="pi pi-volume-up has-text-white mr-2"></i>
+                                <input type="range" min="0" max="100" value="80" name="level"/>
+                            </div>
+                        </div>
+                    </div>
 
-                <h2 class="title is-4 mt-6">Logs</h2>
-                <div class="box" style="max-height: 300px; overflow-y: auto;" id="logsPanel">
-                    <!-- JS will populate logs here -->
-                </div>
-            </div>  
+                </nav>
+            </div>
+
         </section>
 
-        <!-- Static Music Bar -->
-        <div id="musicBar"
-             class="player-panel columns is-vcentered"
-             style="position:fixed;bottom:0;width:100%;background:#1c1c1c;z-index:999;">
-            <div class="column m-0 p-1">
-                <div class="columns is-vcentered is-centered">
-                    <div class="column is-2 has-text-centered">
-                        <p id="songTitle" class="has-text-white is-size-6">Loading...</p>
-                    </div>
-                    <div class="column">
-                        <div class="columns is-vcentered is-centered">
-                            <div class="column is-narrow has-text-centered">
-                                <button id="shuffleBtn" title="Shuffle">
-                                    <i id="shuffleIcon" class="pi pi-sort-alt"></i>
-                                </button>
-                            </div>
-                            <div class="column is-narrow has-text-centered">
-                                <button id="prevBtn" title="Previous">
-                                    <i class="pi pi-step-backward"></i>
-                                </button>
-                            </div>
-                            <div class="column is-narrow has-text-centered">
-                                <button id="playPauseBtn">
-                                    <i id="playPauseIcon" class="pi pi-play"></i>
-                                </button>
-                            </div>
-                            <div class="column is-narrow has-text-centered">
-                                <button id="nextBtn" title="Next">
-                                    <i class="pi pi-step-forward"></i>
-                                </button>
-                            </div>
-                            <div class="column is-narrow has-text-centered">
-                                <button id="repeatBtn" title="Repeat">
-                                    <i id="repeatIcon" class="pi pi-refresh"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="columns is-vcentered is-centered">
-                    <div class="column is-2"></div>
-                    <div class="column">
-                        <div class="columns m-0 p-0">
-                            <div class="column is-narrow m-0">
-                                <span id="currentTime" class="has-text-white">0:00</span>
-                            </div>
-                            <div class="column m-0">
-                                <input type="range" min="0" max="100" value="0"
-                                       style="width:100%"
-                                       name="seconds"/>
-                            </div>
-                            <div class="column is-narrow m-0">
-                                <span id="totalTime" class="has-text-white">0:00</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="column is-2 has-text-centered">
-                        <input type="range" min="0" max="100" value="80" name="level"/>
-                    </div>
-                </div>
-            </div>
-        </div> 
-
         <script src="/js/musicBar.js"></script>
-
-
-
-        <script src="js/settings.js"></script>
+        <script src="/js/settings.js"></script>
         <script>
             document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("resetLibrary").onclick = () => window.resetLibrary();
                 document.getElementById("scanLibrary").onclick = () => window.scanLibrary();
                 document.getElementById("clearLogs").onclick = () => window.clearLogs();
                 document.getElementById("clearSongs").onclick = () => window.clearSongsDB();
-
                 window.refreshSettingsUI?.();
-
-                // Poll logs every 0.5 seconds automatically
                 setInterval(() => window.refreshLogsPanel?.(), 500);
             });
-
         </script>
-
 
     </body>
 </html>

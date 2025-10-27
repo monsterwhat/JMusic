@@ -176,13 +176,13 @@ public class MusicApi {
     public String selectPlaylist(@PathParam("id") Long id) {
         if (id == null || id == 0) {
             // Special case: All Songs
-            playbackController.setCurrentPlaylist(null); // deselect any playlist
+            playbackController.selectPlaylistForBrowsing(null); // deselect any playlist
             return ui.songsFragment(); // return all songs
         }
 
         Playlist playlist = playbackController.findPlaylist(id);
         if (playlist != null) {
-            playbackController.setCurrentPlaylist(playlist);
+            playbackController.selectPlaylistForBrowsing(playlist);
             return ui.playlistSongsFragment(playlist);
         }
 
@@ -263,7 +263,7 @@ public class MusicApi {
             return Response.serverError().build();
         }
 
-    }
+    } 
 
     @POST
     @Path("/next")

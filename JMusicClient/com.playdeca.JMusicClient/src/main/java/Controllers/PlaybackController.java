@@ -69,18 +69,17 @@ public class PlaybackController {
         return memoryState;
     }
 
-    public synchronized void updateState(PlaybackState newState) {
+    public synchronized void updateState(PlaybackState newState, boolean shouldBroadcast) {
         if (memoryState == null) {
             memoryState = playbackStateService.getState();
         }
 
-        PlaybackState current = memoryState;
-
-        // Preserve current time if only metadata updated
         if (newState.getCurrentSongId() != null
-                && newState.getCurrentSongId().equals(current.getCurrentSongId())
+                && newState.getCurrentSongId().equals(memoryState.getCurrentSongId())
                 && newState.getCurrentTime() == 0) {
-            newState.setCurrentTime(current.getCurrentTime());
+            newState.setCurrentTime(memoryState.getCurrentTime());
+            newState.setArtistName(memoryState.getArtistName());
+            newState.setSongName(memoryState.getSongName());
         }
 
         if (newState.getCue() == null) {
@@ -92,9 +91,14 @@ public class PlaybackController {
 
         memoryState = newState;
 
-        maybePersistThrottled(); // will persist + broadcast if enough time passed
+        maybePersistThrottled(); // persist only
+
+        if (shouldBroadcast && ws != null) {
+            ws.broadcastAll();
+        }
     }
 
+    // Updated maybePersistThrottled()
     private synchronized void maybePersistThrottled() {
         long now = System.currentTimeMillis();
         if (now - lastSaveTime >= MIN_SAVE_INTERVAL_MS) {
@@ -104,11 +108,13 @@ public class PlaybackController {
 
     private PlaybackState lastPersistedState = null;
 
+    // Updated persistMemoryState()
     private synchronized void persistMemoryState(boolean force) {
-        long now = System.currentTimeMillis();
         if (memoryState == null) {
             return;
         }
+        long now = System.currentTimeMillis();
+
         if (!force && now - lastSaveTime < MIN_SAVE_INTERVAL_MS) {
             return;
         }
@@ -121,13 +127,16 @@ public class PlaybackController {
         System.out.println("[PlaybackController] Persisting in-memory state: " + safeSummary(memoryState));
 
         playbackStateService.updateState(memoryState);
-        lastPersistedState = memoryState;
 
-        if (ws != null) {
-            ws.broadcastAll();
+        try {
+            lastPersistedState = mapper.readValue(mapper.writeValueAsString(memoryState), PlaybackState.class);
+        } catch (IOException e) {
+            System.out.println("Error Persisting memory!");
+            lastPersistedState = memoryState;
         }
 
         lastSaveTime = now;
+
     }
 
     // -----------------------------
@@ -160,7 +169,7 @@ public class PlaybackController {
         } else {
             PlaybackState incoming = mapper.treeToValue(node, PlaybackState.class);
             incoming.setVolume(memoryState.getVolume()); // preserve existing
-            updateState(incoming);
+            updateState(incoming, true);
         }
     }
 
@@ -173,6 +182,9 @@ public class PlaybackController {
             st.setPlaying(!st.isPlaying());
         } else {
             st.setCurrentSongId(id);
+            Song newSong = findSong(id);
+            st.setArtistName(newSong != null ? newSong.getArtist() : "Unknown Artist");
+            st.setSongName(newSong != null ? newSong.getTitle() : "Unknown Title");
             st.setPlaying(true);
             st.setCurrentTime(0);
 
@@ -199,8 +211,8 @@ public class PlaybackController {
             st.setLastSongs(last);
         }
 
-        updateState(st);
-        ws.broadcastAll();
+        updateState(st, true);
+        System.out.println("Updated Selection");
     }
 
     public synchronized void moveSong(boolean forward) {
@@ -238,11 +250,14 @@ public class PlaybackController {
         st.setCueIndex(idx);
         Long songId = cue.get(idx);
         st.setCurrentSongId(songId);
+        Song newSong = findSong(songId);
+        st.setArtistName(newSong != null ? newSong.getArtist() : "Unknown Artist");
+        st.setSongName(newSong != null ? newSong.getTitle() : "Unknown Title");
         st.setPlaying(true);
         st.setCurrentTime(0);
         updateLastSongs(st, songId);
 
-        updateState(st); // persists + broadcasts
+        updateState(st, true); // persists + broadcasts
     }
 
     private synchronized void updateLastSongs(PlaybackState state, Long songId) {
@@ -292,7 +307,7 @@ public class PlaybackController {
         st.setCurrentSongId(null);
         st.setPlaying(false);
         st.setCueIndex(-1);
-        updateState(st);
+        updateState(st, true);
     }
 
     private void handleAction(com.fasterxml.jackson.databind.JsonNode node) {
@@ -313,12 +328,6 @@ public class PlaybackController {
             case "toggle-play":
                 togglePlay();
                 break;
-            case "play":
-                play();
-                break;
-            case "pause":
-                pause();
-                break;
             case "next":
                 next();
                 break;
@@ -333,7 +342,6 @@ public class PlaybackController {
                 break;
         }
 
-        memoryState = state;
         // Persist throttled to DB
         maybePersistThrottled();
     }
@@ -411,6 +419,16 @@ public class PlaybackController {
         if (st.isShuffleEnabled()) {
             idx = pickShuffleIndex(st, cue);
         } else {
+            if (forward && !st.isRepeatEnabled()) {
+                // Remove current song if not repeating
+                if (idx >= 0 && idx < cue.size()) {
+                    cue.remove(idx);
+                    if (idx >= cue.size()) {
+                        idx = cue.size() - 1;
+                    }
+                }
+            }
+
             idx = forward ? idx + 1 : idx - 1;
 
             if (idx < 0) {
@@ -432,39 +450,31 @@ public class PlaybackController {
         Long songId = cue.get(idx);
         st.setCueIndex(idx);
         st.setCurrentSongId(songId);
+        Song newSong = findSong(songId);
+        st.setArtistName(newSong != null ? newSong.getArtist() : "Unknown Artist");
+        st.setSongName(newSong != null ? newSong.getTitle() : "Unknown Title");
         st.setCurrentTime(0);
         st.setPlaying(true);
         updateLastSongs(st, songId);
 
-        updateState(st);
-        ws.broadcastAll();
+        updateState(st, true);
     }
 
     public synchronized void next() {
+        System.out.println("Next");
         advanceSong(true);
     }
 
     public synchronized void previous() {
+        System.out.println("Previous");
         advanceSong(false);
     }
 
     public synchronized void togglePlay() {
+        System.out.println("Toggle");
         PlaybackState state = getState();
         state.setPlaying(!state.isPlaying());
-        updateState(state);
-        ws.broadcastAll();
-    }
-
-    public synchronized void pause() {
-        PlaybackState state = getState();
-        state.setPlaying(false);
-        updateState(state);
-    }
-
-    public synchronized void play() {
-        PlaybackState state = getState();
-        state.setPlaying(true);
-        updateState(state);
+        updateState(state, true);
     }
 
     /**
@@ -473,8 +483,7 @@ public class PlaybackController {
     public synchronized void toggleShuffle() {
         PlaybackState state = getState();
         state.setShuffleEnabled(!state.isShuffleEnabled());
-        updateState(state);
-        ws.broadcastAll();
+        updateState(state, true);
     }
 
     /**
@@ -483,8 +492,7 @@ public class PlaybackController {
     public synchronized void toggleRepeat() {
         PlaybackState state = getState();
         state.setRepeatEnabled(!state.isRepeatEnabled());
-        updateState(state);
-        ws.broadcastAll();
+        updateState(state, true);
     }
 
     /**
@@ -493,8 +501,7 @@ public class PlaybackController {
     public synchronized void changeVolume(float level) {
         PlaybackState st = getState();
         st.setVolume(Math.max(0f, Math.min(1f, level)));
-        updateState(st);
-        ws.broadcastAll();
+        updateState(st, true);
     }
 
     /**
@@ -503,8 +510,7 @@ public class PlaybackController {
     public synchronized void setSeconds(double seconds) {
         PlaybackState st = getState();
         st.setCurrentTime(Math.max(0, seconds));
-        updateState(st);
-        ws.broadcastAll();
+        updateState(st, true);
     }
 
     /**
@@ -525,7 +531,7 @@ public class PlaybackController {
         return allSongs.isEmpty() ? null : allSongs.get(0);
     }
 
-    public synchronized void setCurrentPlaylist(Playlist playlist) {
+    public synchronized void replaceQueueWithPlaylist(Playlist playlist) {
         PlaybackState st = getState();
 
         if (playlist == null) {
@@ -566,8 +572,147 @@ public class PlaybackController {
             }
         }
 
-        updateState(st); // persist + broadcast
-        ws.broadcastAll();
+        updateState(st, true); // persist + broadcast 
+    }
+
+    // -----------------------------
+// Queue management helpers
+// -----------------------------
+    /**
+     * Adds one or more songs to the current queue. If `playNext` is true, songs
+     * are inserted after the current index. Otherwise, appended to the end.
+     */
+    public synchronized void addToQueue(List<Long> songIds, boolean playNext) {
+        PlaybackState st = getState();
+        if (st.getCue() == null) {
+            st.setCue(new ArrayList<>());
+        }
+
+        List<Long> cue = st.getCue();
+        int insertIndex = playNext
+                ? Math.min(st.getCueIndex() + 1, cue.size())
+                : cue.size();
+
+        for (Long id : songIds) {
+            if (!cue.contains(id)) {
+                cue.add(insertIndex, id);
+                insertIndex++;
+            }
+        }
+
+        st.setCue(cue);
+        updateState(st, true);
+    }
+
+    /**
+     * Removes a specific song from the queue. If it's currently playing, moves
+     * to next or stops.
+     */
+    public synchronized void removeFromQueue(Long songId) {
+        PlaybackState st = getState();
+        List<Long> cue = st.getCue();
+        if (cue == null || cue.isEmpty()) {
+            return;
+        }
+
+        int currentIndex = st.getCueIndex();
+        Long currentId = st.getCurrentSongId();
+
+        int removeIndex = cue.indexOf(songId);
+        if (removeIndex == -1) {
+            return;
+        }
+
+        cue.remove(removeIndex);
+
+        if (songId.equals(currentId)) {
+            // If we removed the currently playing song
+            if (cue.isEmpty()) {
+                stopPlayback();
+                return;
+            }
+            // Try to move to next song (wrap if necessary)
+            currentIndex = Math.min(removeIndex, cue.size() - 1);
+            st.setCueIndex(currentIndex);
+            st.setCurrentSongId(cue.get(currentIndex));
+            st.setCurrentTime(0);
+        } else if (removeIndex < currentIndex) {
+            st.setCueIndex(currentIndex - 1);
+        }
+
+        st.setCue(cue);
+        updateState(st, true);
+    }
+
+    /**
+     * Clears the entire queue and stops playback.
+     */
+    public synchronized void clearQueue() {
+        PlaybackState st = getState();
+        st.setCue(new ArrayList<>());
+        st.setCueIndex(-1);
+        st.setCurrentSongId(null);
+        st.setPlaying(false);
+        st.setCurrentTime(0);
+        updateState(st, true);
+    }
+
+    /**
+     * Moves a song within the queue (drag-and-drop style reordering).
+     */
+    public synchronized void moveInQueue(int fromIndex, int toIndex) {
+        PlaybackState st = getState();
+        List<Long> cue = st.getCue();
+        if (cue == null || cue.isEmpty()) {
+            return;
+        }
+
+        if (fromIndex < 0 || fromIndex >= cue.size()
+                || toIndex < 0 || toIndex >= cue.size()) {
+            return;
+        }
+
+        Long songId = cue.remove(fromIndex);
+        cue.add(toIndex, songId);
+
+        // Adjust cue index if needed
+        int currentIdx = st.getCueIndex();
+        if (fromIndex == currentIdx) {
+            st.setCueIndex(toIndex);
+        } else if (fromIndex < currentIdx && toIndex >= currentIdx) {
+            st.setCueIndex(currentIdx - 1);
+        } else if (fromIndex > currentIdx && toIndex <= currentIdx) {
+            st.setCueIndex(currentIdx + 1);
+        }
+
+        st.setCue(cue);
+        updateState(st, true);
+    }
+
+    /**
+     * Sets the currently selected playlist for UI purposes only. Does NOT alter
+     * the current queue or playback.
+     */
+    public synchronized void selectPlaylistForBrowsing(Playlist playlist) {
+        PlaybackState st = getState();
+        st.setCurrentPlaylistId(playlist != null ? playlist.id : null);
+        updateState(st, true); // only persists & broadcasts selection
+    }
+
+    /**
+     * Adds all songs from a playlist to the queue.
+     *
+     * @param playlist the playlist whose songs to add
+     * @param playNext if true, insert after current song; else append at end
+     */
+    public synchronized void addPlaylistToQueue(Playlist playlist, boolean playNext) {
+        if (playlist == null || playlist.getSongs() == null || playlist.getSongs().isEmpty()) {
+            return;
+        }
+        List<Long> songIds = playlist.getSongs().stream()
+                .map(s -> s.id)
+                .toList();
+        addToQueue(songIds, playNext);
     }
 
 }
