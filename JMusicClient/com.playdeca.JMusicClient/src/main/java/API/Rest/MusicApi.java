@@ -1,21 +1,13 @@
 package API.Rest;
 
+import API.ApiResponse;
 import Controllers.PlaybackController;
 import Models.Playlist;
 import Models.Settings;
 import Models.Song;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.HeaderParam;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.PUT;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
@@ -30,28 +22,13 @@ import java.util.logging.Logger;
 @Transactional
 @Path("/api/music")
 @Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
 public class MusicApi {
 
     @Inject
     private PlaybackController playbackController;
 
-    @Inject
-    private MusicUiApi ui;
-
     private static final Logger LOGGER = Logger.getLogger(MusicApi.class.getName());
-
-    @POST
-    @Path("/toggle-play")
-    @Consumes("*/*")
-    public Response togglePlay() {
-        try {
-            playbackController.applyMessage("{\"action\":\"toggle-play\"}");
-            return Response.ok().build();
-        } catch (IOException e) {
-            return Response.serverError().build();
-        }
-
-    }
 
     // -------------------------
     // Streaming endpoint by song ID
@@ -140,53 +117,32 @@ public class MusicApi {
     // Playlist endpoints (JSON)
     // -------------------------
     @GET
-    @Consumes("*/*")
     @Path("/playlists")
     public Response listPlaylists() {
         List<Playlist> playlists = playbackController.getPlaylists();
         if (playlists == null) {
             playlists = new ArrayList<>();
         }
-        return Response.ok(playlists).build();
+        return Response.ok(ApiResponse.success(playlists)).build();
     }
 
     @GET
     @Path("/playlists/{id}")
     public Response getPlaylist(@PathParam("id") Long id) {
-        return Response.ok(requirePlaylist(id)).build();
+        return Response.ok(ApiResponse.success(requirePlaylist(id))).build();
     }
 
     @POST
     @Path("/playlists")
     public Response createPlaylist(Playlist playlist) {
         if (playlist == null || playlist.getName() == null || playlist.getName().isBlank()) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("{\"error\":\"Name required\"}").build();
+            return Response.status(Response.Status.BAD_REQUEST).entity(ApiResponse.error("Name required")).build();
         }
         if (playlist.getSongs() == null) {
             playlist.setSongs(new ArrayList<>());
         }
         playbackController.createPlaylist(playlist);
-        return Response.ok(playlist).build();
-    }
-
-    @POST
-    @Path("/playlists/{id}/select")
-    @Consumes(MediaType.WILDCARD)
-    @Produces(MediaType.TEXT_HTML)
-    public String selectPlaylist(@PathParam("id") Long id) {
-        if (id == null || id == 0) {
-            // Special case: All Songs
-            playbackController.selectPlaylistForBrowsing(null); // deselect any playlist
-            return ui.songsFragment(); // return all songs
-        }
-
-        Playlist playlist = playbackController.findPlaylist(id);
-        if (playlist != null) {
-            playbackController.selectPlaylistForBrowsing(playlist);
-            return ui.playlistSongsFragment(playlist);
-        }
-
-        return "<tbody></tbody>";
+        return Response.status(Response.Status.CREATED).entity(ApiResponse.success(playlist)).build();
     }
 
     @PUT
@@ -197,7 +153,7 @@ public class MusicApi {
         e.setDescription(playlist.getDescription());
         e.setSongs(playlist.getSongs() != null ? playlist.getSongs() : new ArrayList<>());
         playbackController.updatePlaylist(e);
-        return Response.ok(e).build();
+        return Response.ok(ApiResponse.success(e)).build();
     }
 
     @DELETE
@@ -205,7 +161,7 @@ public class MusicApi {
     public Response deletePlaylist(@PathParam("id") Long id) {
         Playlist p = requirePlaylist(id);
         playbackController.deletePlaylist(p);
-        return Response.ok("{\"status\":\"deleted\"}").build();
+        return Response.ok(ApiResponse.success("deleted")).build();
     }
 
     @POST
@@ -217,7 +173,7 @@ public class MusicApi {
             p.getSongs().add(s);
             playbackController.updatePlaylist(p);
         }
-        return Response.ok(p).build();
+        return Response.ok(ApiResponse.success(p)).build();
     }
 
     @DELETE
@@ -226,119 +182,100 @@ public class MusicApi {
         Playlist p = requirePlaylist(pid);
         p.getSongs().removeIf(song -> song.id.equals(sid));
         playbackController.updatePlaylist(p);
-        return Response.ok(p).build();
+        return Response.ok(ApiResponse.success(p)).build();
     }
 
     // -------------------------
     // Playback endpoints
     // -------------------------
     @GET
-    @Path("/current")
+    @Path("/playback/current")
     public Response getCurrentSong() {
         var current = playbackController.getCurrentSong();
-        return Response.ok(current).build();
+        return Response.ok(ApiResponse.success(current)).build();
     }
 
     @POST
-    @Path("/play")
-    @Consumes("*/*")
+    @Path("/playback/toggle")
+    public Response togglePlay() {
+        playbackController.togglePlay();
+        return Response.ok(ApiResponse.success("Playback toggled")).build();
+    }
+
+    @POST
+    @Path("/playback/play")
     public Response play() {
-        try {
-            playbackController.applyMessage("{\"action\":\"play\"}");
-            return Response.ok().build();
-        } catch (Exception e) {
-            return Response.serverError().build();
-        }
-
+        playbackController.togglePlay(); // Assuming togglePlay handles both play and pause
+        return Response.ok(ApiResponse.success("Playback started")).build();
     }
 
     @POST
-    @Path("/pause")
-    @Consumes("*/*")
+    @Path("/playback/pause")
     public Response pause() {
-        try {
-            playbackController.applyMessage("{\"action\":\"pause\"}");
-            return Response.ok().build();
-        } catch (Exception e) {
-            return Response.serverError().build();
-        }
-
-    } 
+        playbackController.togglePlay(); // Assuming togglePlay handles both play and pause
+        return Response.ok(ApiResponse.success("Playback paused")).build();
+    }
 
     @POST
-    @Path("/next")
-    @Consumes("*/*")
+    @Path("/playback/next")
     public Response next() {
-        try {
-            playbackController.applyMessage("{\"action\":\"next\"}");
-            return Response.ok().build();
-        } catch (Exception e) {
-            return Response.serverError().build();
-        }
-
+        playbackController.next();
+        return Response.ok(ApiResponse.success("Skipped to next song")).build();
     }
 
     @POST
-    @Path("/previous")
-    @Consumes("*/*")
+    @Path("/playback/previous")
     public Response previous() {
-        try {
-            playbackController.applyMessage("{\"action\":\"previous\"}");
-            return Response.ok().build();
-        } catch (Exception e) {
-            return Response.serverError().build();
-        }
-
+        playbackController.previous();
+        return Response.ok(ApiResponse.success("Skipped to previous song")).build();
     }
 
     @POST
-    @Path("/select/{id}")
-    @Consumes("*/*")
+    @Path("/playback/select/{id}")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Response selectSong(@PathParam("id") Long id) {
         try {
             playbackController.selectSong(id);
-            return Response.ok().build();
+            return Response.ok(ApiResponse.success("Song selected")).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.NOT_FOUND)
-                    .entity("{\"error\":\"" + e.getMessage() + "\"}")
+                    .entity(ApiResponse.error(e.getMessage()))
                     .build();
         }
     }
 
     @POST
-    @Path("/shuffle/{enabled}")
-    @Consumes({"application/json", "text/plain", "*/*"})
-    public Response toggleShuffle(@PathParam("enabled") boolean enabled) {
+    @Path("/playback/shuffle")
+    public Response toggleShuffle() {
         playbackController.toggleShuffle();
-        return Response.ok().build();
+        return Response.ok(ApiResponse.success("Shuffle toggled")).build();
     }
 
     @POST
-    @Path("/repeat/{enabled}")
-    @Consumes({"application/json", "text/plain", "*/*"})
-    public Response toggleRepeat(@PathParam("enabled") boolean enabled) {
+    @Path("/playback/repeat")
+    public Response toggleRepeat() {
         playbackController.toggleRepeat();
-        return Response.ok().build();
+        return Response.ok(ApiResponse.success("Repeat toggled")).build();
     }
 
     @POST
-    @Path("/volume/{level}")
+    @Path("/playback/volume/{level}")
     public Response setVolume(@PathParam("level") float level) {
         playbackController.changeVolume(level);
-        return Response.ok().build();
+        return Response.ok(ApiResponse.success("Volume changed")).build();
     }
 
     @POST
-    @Path("/position/{seconds}")
+    @Path("/playback/position/{seconds}")
     public Response setPosition(@PathParam("seconds") double seconds) {
         playbackController.setSeconds(seconds);
-        return Response.ok().build();
+        return Response.ok(ApiResponse.success("Position changed")).build();
     }
 
     private Playlist requirePlaylist(Long id) {
         Playlist p = playbackController.findPlaylist(id);
         if (p == null) {
-            throw new WebApplicationException(Response.Status.NOT_FOUND);
+            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).entity(ApiResponse.error("Playlist not found")).build());
         }
         if (p.getSongs() == null) {
             p.setSongs(new ArrayList<>());
@@ -349,7 +286,7 @@ public class MusicApi {
     private Song requireSong(Long id) {
         Song s = playbackController.findSong(id);
         if (s == null) {
-            throw new WebApplicationException(Response.Status.NOT_FOUND);
+            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).entity(ApiResponse.error("Song not found")).build());
         }
         return s;
     }

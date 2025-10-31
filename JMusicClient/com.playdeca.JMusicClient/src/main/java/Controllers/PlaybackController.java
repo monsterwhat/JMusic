@@ -1,6 +1,6 @@
 package Controllers;
 
-import API.WS.MusicWebSocket;
+import API.WS.MusicSocket;
 import Models.PlaybackState;
 import Models.Playlist;
 import Models.Settings;
@@ -35,7 +35,7 @@ public class PlaybackController {
     @Inject
     PlaylistService playlistService;
     @Inject
-    MusicWebSocket ws;
+    MusicSocket ws;
 
     public PlaybackController() {
         System.out.println("[PlaybackController] PlaybackController instance created");
@@ -74,12 +74,23 @@ public class PlaybackController {
             memoryState = playbackStateService.getState();
         }
 
+        if (newState.getCurrentSongId() != null) {
+            Song currentSong = songService.find(newState.getCurrentSongId());
+            if (currentSong != null) {
+                newState.setArtistName(currentSong.getArtist());
+                newState.setSongName(currentSong.getTitle());
+                newState.setDuration(currentSong.getDurationSeconds());
+            } else {
+                newState.setArtistName("Unknown Artist");
+                newState.setSongName("Unknown Title");
+                newState.setDuration(0);
+            }
+        }
+
         if (newState.getCurrentSongId() != null
                 && newState.getCurrentSongId().equals(memoryState.getCurrentSongId())
                 && newState.getCurrentTime() == 0) {
             newState.setCurrentTime(memoryState.getCurrentTime());
-            newState.setArtistName(memoryState.getArtistName());
-            newState.setSongName(memoryState.getSongName());
         }
 
         if (newState.getCue() == null) {
@@ -180,13 +191,16 @@ public class PlaybackController {
         if (current != null && current.id.equals(id)) {
             // Toggle play/pause
             st.setPlaying(!st.isPlaying());
+            currentSettings.addLog("Playback toggled for song: " + current.getTitle());
         } else {
             st.setCurrentSongId(id);
             Song newSong = findSong(id);
             st.setArtistName(newSong != null ? newSong.getArtist() : "Unknown Artist");
             st.setSongName(newSong != null ? newSong.getTitle() : "Unknown Title");
+            st.setDuration(newSong != null ? newSong.getDurationSeconds() : 0);
             st.setPlaying(true);
             st.setCurrentTime(0);
+            currentSettings.addLog("Song selected: " + (newSong != null ? newSong.getTitle() : "Unknown Title"));
 
             // Add to cue if missing
             List<Long> cue = st.getCue();
@@ -253,6 +267,7 @@ public class PlaybackController {
         Song newSong = findSong(songId);
         st.setArtistName(newSong != null ? newSong.getArtist() : "Unknown Artist");
         st.setSongName(newSong != null ? newSong.getTitle() : "Unknown Title");
+        st.setDuration(newSong != null ? newSong.getDurationSeconds() : 0);
         st.setPlaying(true);
         st.setCurrentTime(0);
         updateLastSongs(st, songId);
@@ -461,16 +476,19 @@ public class PlaybackController {
     }
 
     public synchronized void next() {
+        currentSettings.addLog("Skipped to next song.");
         System.out.println("Next");
         advanceSong(true);
     }
 
     public synchronized void previous() {
+        currentSettings.addLog("Skipped to previous song.");
         System.out.println("Previous");
         advanceSong(false);
     }
 
     public synchronized void togglePlay() {
+        currentSettings.addLog("Playback toggled.");
         System.out.println("Toggle");
         PlaybackState state = getState();
         state.setPlaying(!state.isPlaying());
@@ -483,6 +501,7 @@ public class PlaybackController {
     public synchronized void toggleShuffle() {
         PlaybackState state = getState();
         state.setShuffleEnabled(!state.isShuffleEnabled());
+        currentSettings.addLog("Shuffle toggled to: " + state.isShuffleEnabled());
         updateState(state, true);
     }
 
@@ -492,6 +511,7 @@ public class PlaybackController {
     public synchronized void toggleRepeat() {
         PlaybackState state = getState();
         state.setRepeatEnabled(!state.isRepeatEnabled());
+        currentSettings.addLog("Repeat toggled to: " + state.isRepeatEnabled());
         updateState(state, true);
     }
 

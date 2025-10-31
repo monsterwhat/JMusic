@@ -39,9 +39,20 @@ public class SongService {
         return em.find(Song.class, id);
     }
 
+    @Transactional
     public List<Song> findAll() {
         return em.createQuery("SELECT s FROM Song s", Song.class)
                 .getResultList();
+    }
+
+    public Song findByPath(String path) {
+        try {
+            return em.createQuery("SELECT s FROM Song s WHERE s.path = :path", Song.class)
+                    .setParameter("path", path)
+                    .getSingleResult();
+        } catch (jakarta.persistence.NoResultException e) {
+            return null;
+        }
     }
 
     @Transactional(Transactional.TxType.REQUIRES_NEW)

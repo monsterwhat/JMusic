@@ -23,11 +23,34 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({name, description})
         });
-        if (response.ok) {
+        const json = await response.json();
+        if (response.ok && json.data) {
             closeModal();
             htmx.ajax('GET', '/api/music/ui/playlists-fragment', {target: '#sidebarPlaylistList'});
         } else {
-            alert('Failed to create playlist');
+            alert('Failed to create playlist: ' + json.error);
         }
     });
+
+    // Mobile Sidebar Toggle Logic
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const playlistSidebar = document.getElementById('playlistSidebar');
+    const body = document.body;
+
+    if (sidebarToggle && playlistSidebar) {
+        // Create overlay element
+        const sidebarOverlay = document.createElement('div');
+        sidebarOverlay.classList.add('sidebar-overlay');
+        body.appendChild(sidebarOverlay);
+
+        const toggleSidebar = () => {
+            playlistSidebar.classList.toggle('is-active');
+            sidebarOverlay.classList.toggle('is-active');
+            // Prevent scrolling when sidebar is open
+            body.classList.toggle('is-clipped', playlistSidebar.classList.contains('is-active'));
+        };
+
+        sidebarToggle.addEventListener('click', toggleSidebar);
+        sidebarOverlay.addEventListener('click', toggleSidebar); // Close when overlay is clicked
+    }
 });

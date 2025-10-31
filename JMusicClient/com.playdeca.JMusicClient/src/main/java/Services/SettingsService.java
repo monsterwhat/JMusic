@@ -39,10 +39,12 @@ public class SettingsService {
         }
     }
 
+    @Transactional
     public Settings find(Long id) {
         return em.find(Settings.class, id);
     }
 
+    @Transactional
     public List<Settings> findAll() {
         return em.createQuery("SELECT s FROM Settings s", Settings.class)
                 .getResultList();
@@ -111,6 +113,7 @@ public class SettingsService {
     }
 
     // Non-transactional: safe to call anywhere
+    @Transactional
     public Settings getSettingsOrNull() {
         List<Settings> all = findAll(); // just read, no transaction required
         if (all.isEmpty()) {
@@ -141,6 +144,7 @@ public class SettingsService {
     }
 
 // Public method combining both
+    @Transactional
     public Settings getOrCreateSettings() {
         Settings settings = getSettingsOrNull();
         if (settings == null) {
@@ -150,11 +154,13 @@ public class SettingsService {
     }
 
     // ------------------- GET ALL LOGS -------------------
+    @Transactional
     public List<SettingsLog> getAllLogs() {
         return em.createQuery("SELECT l FROM SettingsLog l ORDER BY l.id ASC", SettingsLog.class)
                 .getResultList();
     }
 
+    @Transactional
     public List<SettingsLog> getLogs(Settings settings) {
         if (settings != null) {
             // ensure managed state
@@ -165,3 +171,4 @@ public class SettingsService {
     }
 
 }
+

@@ -25,6 +25,7 @@ public class PlaybackState {
     private String songName;
     private String artistName;
     private double currentTime;
+    private double duration; // Added duration field
     private float volume;
     private boolean shuffleEnabled;
     private boolean repeatEnabled;

@@ -35,8 +35,10 @@ public class DesktopController {
     private TrayIcon trayIcon; // keep reference to ensure only one icon
 
     void onStart(@Observes StartupEvent ev) {
+        settings.addLog("Application starting...");
         startTrayIcon();
         startBrowser();
+        settings.addLog("Application started.");
     }
 
     private void startBrowser() {
@@ -112,11 +114,13 @@ public class DesktopController {
     }
 
     public void clientConnected() {
+        settings.addLog("Client connected.");
         activeClients.incrementAndGet();
         hasHadClient = true;
     }
 
     public void clientDisconnected() {
+        settings.addLog("Client disconnected.");
         int count = activeClients.decrementAndGet();
         if (count < 0) {
             activeClients.set(0);
@@ -137,6 +141,7 @@ public class DesktopController {
 
     @PreDestroy
     void shutdownScheduler() {
+        settings.addLog("Application shutting down.");
         scheduler.shutdown();
     }
 

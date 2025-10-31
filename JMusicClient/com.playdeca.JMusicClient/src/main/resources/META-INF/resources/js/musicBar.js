@@ -19,7 +19,24 @@ let draggingVolume = false;
 audio.volume = musicState.volume;
 
 // ---------------- Helpers ----------------
-const formatTime = s => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+const formatTime = s => {
+    if (s === null || s === undefined || isNaN(s)) {
+        return "0:00";
+    }
+    return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+};
+
+function throttle(func, delay) {
+    let lastCall = 0;
+    return function (...args) {
+        const now = new Date().getTime();
+        if (now - lastCall < delay) {
+            return;
+        }
+        lastCall = now;
+        return func(...args);
+    };
+}
 
 function updateMusicBar() {
     const {songName, artist, playing, currentTime, duration, volume, shuffleEnabled, repeatEnabled} = musicState;
@@ -59,30 +76,37 @@ function updateMusicBar() {
 }
 
 // ---------------- Audio Events ----------------
+const throttledSendWS = throttle(sendWS, 300); // Send a message at most every 300ms
+
+function sendWS(type, payload) {
+    console.log("[musicBar.js] sendWS: Sending type=", type, "payload=", payload);
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({type, payload}));
+}
+
 audio.ontimeupdate = () => {
     if (!draggingSeconds) {
         musicState.currentTime = audio.currentTime;
-        if (!audio._lastSeekSent || Math.abs(audio.currentTime - audio._lastSeekSent) > 0.3) {
-            sendWS({action: 'seek', value: audio.currentTime});
-            audio._lastSeekSent = audio.currentTime;
-        }
-        updateMusicBar();
+        throttledSendWS("seek", {value: audio.currentTime});
+        updateMusicBar(); // Update UI more frequently
+        console.log("[musicBar.js] ontimeupdate: audio.currentTime=", audio.currentTime, "musicState.currentTime=", musicState.currentTime);
     }
 };
 
 audio.onended = () => {
+    console.log("[musicBar.js] audio.onended: Song ended, sending 'next'");
     // tell backend to go to next song
-    sendWS({action: 'next'});
+    sendWS("next", {});
 
     // immediately fetch the new current song from backend
-    fetch('/api/music/current')
+    fetch('/api/music/playback/current')
             .then(r => r.json())
-            .then(data => {
-                if (!data || !data.id)
+            .then(json => {
+                if (!json.data || !json.data.id)
                     return;
 
                 // update the audio element with new song
-                UpdateAudioSource(data.id, true, data.currentTime ?? 0);
+                UpdateAudioSource(json.data, true, json.data.currentTime ?? 0);
 
                 // force UI refresh
                 refreshSongTable();
@@ -92,197 +116,263 @@ audio.onended = () => {
 
 
 // ---------------- Update Audio Source ----------------
-function UpdateAudioSource(songId, play = false, backendTime = 0) {
-    if (!songId)
+function UpdateAudioSource(song, play = false, backendTime = 0) {
+    console.log("[musicBar.js] UpdateAudioSource called with song:", song, "play:", play, "backendTime:", backendTime);
+    if (!song || !song.id)
         return;
 
-    const sameSong = String(musicState.currentSongId) === String(songId);
-    musicState.currentSongId = songId;
-    musicState.songName = "Loading...";
-    musicState.artist = "Loading...";
-    musicState.currentTime = backendTime ?? 0;
-    musicState.duration = 0;
+    const sameSong = String(musicState.currentSongId) === String(song.id);
+    musicState.currentSongId = song.id;
+    musicState.songName = song.title ?? "Unknown Title";
+    musicState.artist = song.artist ?? "Unknown Artist";
+    musicState.currentTime = (sameSong || backendTime !== 0) ? (backendTime ?? 0) : 0;
+    musicState.duration = song.durationSeconds ?? 0; // Prioritize duration from backend
     updateMusicBar();
-    updatePageTitle(null);
+    updatePageTitle({name: musicState.songName, artist: musicState.artist});
 
-    audio.src = `/api/music/stream/${songId}`;
+    audio.src = `/api/music/stream/${song.id}`;
     audio.load();
     audio.volume = musicState.volume;
 
     audio.onloadedmetadata = () => {
-        audio.currentTime = musicState.currentTime; // set backend time
+        console.log("[musicBar.js] onloadedmetadata: audio.duration=", audio.duration);
+        // Only update musicState.duration from audio.duration if it's a valid, non-zero number
+        if (typeof audio.duration === 'number' && !isNaN(audio.duration) && audio.duration > 0) {
+            musicState.duration = audio.duration;
+        }
+        audio.currentTime = musicState.currentTime; // set backend time after duration is known
         if (play)
             audio.play().catch(console.warn);
-        musicState.duration = audio.duration;
         updateMusicBar();
+        console.log("[musicBar.js] onloadedmetadata: musicState.duration (final)=", musicState.duration);
     };
-
-    fetch(`/api/music/current`)
-            .then(r => r.json())
-            .then(data => {
-                musicState.songName = data?.title ?? "Unknown Title";
-                musicState.artist = data?.artist ?? "Unknown Artist";
-
-                // Always overwrite currentTime if backend sent it
-                if (data?.currentTime !== undefined) {
-                    musicState.currentTime = data.currentTime;
-                    if (!draggingSeconds)
-                        audio.currentTime = musicState.currentTime;
+}
+    
+    
+    // ---------------- WebSocket ----------------
+    let ws;
+    function connectWS() {
+        ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/music/ws');
+        ws.onopen = () => console.log('[WS] Connected');
+        ws.onclose = () => {
+            console.log('[WS] Disconnected. Attempting to reconnect...');
+            setTimeout(connectWS, 1000); // Reconnect after 1 second
+        };
+        ws.onerror = e => console.error('[WS] Error', e);
+        ws.onmessage = handleWSMessage;
+    }
+    
+    function handleWSMessage(msg) {
+        let message;
+        try {
+            message = JSON.parse(msg.data);
+            console.log("[musicBar.js] handleWSMessage: Received message type=", message.type, "payload=", message.payload);
+        } catch (e) {
+            return console.error(e);
+        }
+    
+        if (message.type === 'state') {
+            const state = message.payload;
+            const songChanged = String(state.currentSongId) !== String(musicState.currentSongId);
+            const playChanged = state.playing !== musicState.playing;
+    
+            musicState.currentSongId = state.currentSongId;
+            // musicState.songName = state.songName; // Removed: Prioritize API for songName
+            musicState.artist = state.artist ?? "Unknown Artist";
+            musicState.playing = state.playing;
+            musicState.currentTime = state.currentTime;
+            musicState.duration = state.duration;
+            musicState.volume = state.volume;
+            musicState.shuffleEnabled = state.shuffleEnabled;
+            musicState.repeatEnabled = state.repeatEnabled;
+    
+            if (songChanged) {
+                fetch(`/api/music/playback/current`)
+                    .then(r => r.json())
+                    .then(json => {
+                        if (json.data) {
+                            UpdateAudioSource(json.data, state.playing, state.currentTime ?? 0);
+                            refreshSongTable();
+                        }
+                    });
+            } else if (playChanged) { // If only play state changed, re-initialize audio source to ensure duration is correct
+                fetch(`/api/music/playback/current`)
+                    .then(r => r.json())
+                    .then(json => {
+                        if (json.data) {
+                            UpdateAudioSource(json.data, state.playing, state.currentTime ?? 0);
+                        }
+                    });
+            }
+    
+            if (!draggingSeconds) {
+                if (Math.abs(audio.currentTime - musicState.currentTime) > 1) {
+                    audio.currentTime = musicState.currentTime;
                 }
-
-                updateMusicBar();
-                updatePageTitle({name: musicState.songName, artist: musicState.artist});
-            })
-            .catch(() => {
-                musicState.songName = "Unknown Title";
-                musicState.artist = "Unknown Artist";
-                updateMusicBar();
-                updatePageTitle(null);
-            });
-}
-
-
-// ---------------- WebSocket ----------------
-let ws;
-function connectWS() {
-    ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/music/ws/state');
-    ws.onopen = () => console.log('[WS] Connected');
-    ws.onclose = () => setTimeout(connectWS, 1000);
-    ws.onerror = e => console.error('[WS] Error', e);
-    ws.onmessage = handleWSMessage;
-}
-
-function handleWSMessage(msg) {
-    let state;
-    try {
-        state = JSON.parse(msg.data);
-    } catch (e) {
-        return console.error(e);
+            }
+    
+            if (playChanged) {
+                audio.currentTime = musicState.currentTime; // Synchronize audio element's current time
+                if (musicState.playing) {
+                    audio.play().catch(console.error);
+                } else {
+                    audio.pause();
+                }
+            }
+    
+            updateMusicBar();
+        }
     }
-
-    const songChanged = String(state.currentSongId) !== String(musicState.currentSongId);
-    const playChanged = state.playing !== musicState.playing;
-
-    musicState.shuffleEnabled = state.shuffleEnabled ?? musicState.shuffleEnabled;
-    musicState.repeatEnabled = state.repeatEnabled ?? musicState.repeatEnabled;
-    musicState.volume = state.volume ?? musicState.volume;
-    audio.volume = musicState.volume; // make sure volume is applied immediately
-
-    if (songChanged) {
-        UpdateAudioSource(state.currentSongId, state.playing, state.currentTime ?? 0);
-        musicState.playing = true;
-        refreshSongTable();
-    } else if (!draggingSeconds && state.currentTime !== undefined) {
-        audio.currentTime = state.currentTime;
-        musicState.currentTime = state.currentTime;
+    
+    function sendWS(type, payload) {
+        console.log("[musicBar.js] sendWS: Sending type=", type, "payload=", payload);
+        if (ws && ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify({type, payload}));
     }
+    
+    // ---------------- Controls ----------------
+        function setPlaybackTime(newTime, fromClient = false) {
+            musicState.currentTime = newTime;
+            audio.currentTime = newTime;
+            updateMusicBar();
+            if (fromClient) {
+                sendWS('seek', {value: newTime});
+        }
+        }
 
-    if (playChanged) {
-        musicState.playing = state.playing;
-        if (state.playing)
-            audio.play().catch(console.error);
-        else
-            audio.pause();
-    }
+        function handleSeek(newTime) {
+            musicState.currentTime = newTime; // Immediate UI update
+            updateMusicBar();
+            sendWS('seek', {value: newTime});
+            console.log("[musicBar.js] User manually seeked to sec=", newTime);
+        }
 
-    updateMusicBar();
-}
+        function bindTimeSlider() {
+            const slider = document.querySelector('input[name="seconds"]');
+            if (!slider)
+                return;
 
-function sendWS(obj) {
-    if (ws && ws.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify(obj));
-}
+            slider.onmousedown = slider.ontouchstart = () => draggingSeconds = true;
+            slider.onmouseup = slider.ontouchend = () => {
+                draggingSeconds = false;
+                handleSeek(parseInt(slider.value, 10));
+            };
+            slider.oninput = e => {
+                setPlaybackTime(parseInt(e.target.value, 10), true);
+            };
+        }
 
-// ---------------- Controls ----------------
-function bindTimeSlider() {
-    const slider = document.querySelector('input[name="seconds"]');
-    if (!slider)
-        return;
+        function bindVolumeSlider() {
+            const slider = document.querySelector('input[name="level"]');
+            if (!slider)
+                return;
 
-    slider.onmousedown = slider.ontouchstart = () => draggingSeconds = true;
-    slider.onmouseup = slider.ontouchend = e => {
-        draggingSeconds = false;
-        const sec = parseFloat(e.target.value);
-        musicState.currentTime = sec;
-        audio.currentTime = sec;
-        sendWS({action: 'seek', value: sec});
-        updateMusicBar();
-    };
-    slider.oninput = e => {
-        if (draggingSeconds)
-            document.getElementById('currentTime').innerText = formatTime(parseFloat(e.target.value));
-    };
-}
+            slider.onmousedown = slider.ontouchstart = () => draggingVolume = true;
+            slider.onmouseup = slider.ontouchend = () => {
+                draggingVolume = false;
+                const vol = parseInt(slider.value, 10) / 100;
+                sendWS('volume', {value: vol});
+            };
+            slider.oninput = e => {
+                const vol = parseInt(e.target.value, 10) / 100;
+                audio.volume = vol;
+                sendWS('volume', {value: vol});
+            };
+        }
 
-function bindVolumeSlider() {
-    const slider = document.querySelector('input[name="level"]');
-    if (!slider)
-        return;
+        function bindPlaybackButtons() {
+            const apiPost = (path) => fetch(`/api/music/playback/${path}`, {method: 'POST'});
 
-    slider.onmousedown = slider.ontouchstart = () => draggingVolume = true;
-    slider.onmouseup = slider.ontouchend = () => {
-        draggingVolume = false;
-        const vol = parseInt(slider.value, 10) / 100;
-        musicState.volume = vol;
-        audio.volume = vol;
-        sendWS({action: 'volume', value: vol});
-        updateMusicBar();
-    };
-    slider.oninput = e => {
-        const vol = parseInt(slider.value, 10) / 100;
-        musicState.volume = vol;
-        audio.volume = vol;
-        sendWS({action: 'volume', value: vol});
-    };
-}
-
-function bindPlaybackButtons() {
-    const apiPost = (path) => fetch(`/api/music/${path}`, {method: 'POST'});
-
-    document.getElementById('playPauseBtn').onclick = async () => {
-        // Toggle between play/pause depending on current state
-        const currentSong = await fetch('/api/music/current').then(r => r.json());
-        apiPost('toggle-play');
-    };
-
-    document.getElementById('prevBtn').onclick = () => apiPost('previous');
-    document.getElementById('nextBtn').onclick = () => apiPost('next');
-    document.getElementById('shuffleBtn').onclick = async () => {
-        const currentSong = await fetch('/api/music/current').then(r => r.json());
-        // Toggle shuffle based on current state (you might want to store it separately)
-        apiPost(`shuffle/${!currentSong?.shuffle}`);
-    };
-    document.getElementById('repeatBtn').onclick = async () => {
-        const currentSong = await fetch('/api/music/current').then(r => r.json());
-        // Toggle repeat based on current state
-        apiPost(`repeat/${!currentSong?.repeat}`);
-    };
-}
+            document.getElementById('playPauseBtn').onclick = () => {
+                console.log("[musicBar.js] playPauseBtn clicked");
+                apiPost('toggle');
+            };
+            document.getElementById('prevBtn').onclick = () => {
+                console.log("[musicBar.js] prevBtn clicked");
+                apiPost('previous');
+            };
+            document.getElementById('nextBtn').onclick = () => {
+                console.log("[musicBar.js] nextBtn clicked");
+                apiPost('next');
+            };
+            document.getElementById('shuffleBtn').onclick = () => {
+                console.log("[musicBar.js] shuffleBtn clicked");
+                apiPost('shuffle');
+            };
+            document.getElementById('repeatBtn').onclick = () => {
+                console.log("[musicBar.js] repeatBtn clicked");
+                apiPost('repeat');
+            };
+        }
 
 
 // ---------------- UI ----------------
-function refreshSongTable() {
-    htmx.ajax('GET', '/api/music/ui/songs-fragment', {target: '#songTable tbody', swap: 'outerHTML'});
-}
+        function refreshSongTable() {
+            console.log("[musicBar.js] refreshSongTable called");
+            htmx.ajax('GET', '/api/music/ui/songs-fragment', {target: '#songTable tbody', swap: 'outerHTML'});
+        }
 
-function updatePageTitle(song) {
-    if (!song) {
-        document.getElementById('pageTitle').innerText = "JMusic Home";
-        document.title = "JMusic Home";
-        return;
-    }
-    document.getElementById('pageTitle').innerText = `${song.name} — ${song.artist}`;
-    document.title = `${song.name} : ${song.artist}`;
-}
+        function updatePageTitle(song) {
+            if (!song) {
+                document.getElementById('pageTitle').innerText = "JMusic Home";
+                document.title = "JMusic Home";
+                return;
+            }
+            document.getElementById('pageTitle').innerText = `${song.name} — ${song.artist}`;
+            document.title = `${song.name} : ${song.artist}`;
+        }
 
-function bindMusicBarControls() {
-    bindTimeSlider();
-    bindVolumeSlider();
-    bindPlaybackButtons();
-}
+        function bindMusicBarControls() {
 
-// ---------------- Init ----------------
-document.addEventListener('DOMContentLoaded', () => {
-    bindMusicBarControls();
-    connectWS();
-});
+            bindTimeSlider();
+
+            bindVolumeSlider();
+
+            bindPlaybackButtons();
+
+        }
+
+        // Theme Toggle Logic
+        function applyThemePreference() {
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = document.getElementById('themeIcon');
+            if (!themeToggle || !themeIcon) return;
+
+            let isDarkMode = localStorage.getItem('darkMode');
+
+            if (isDarkMode === null) {
+                // No preference saved, check system preference
+                isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'true' : 'false';
+            }
+
+            if (isDarkMode === 'true') {
+                document.documentElement.classList.add('is-dark-mode');
+                themeIcon.classList.remove('pi-sun');
+                themeIcon.classList.add('pi-moon');
+            } else {
+                document.documentElement.classList.remove('is-dark-mode');
+                themeIcon.classList.remove('pi-moon');
+                themeIcon.classList.add('pi-sun');
+            }
+        }
+
+        // ---------------- Init ----------------
+
+        document.addEventListener('DOMContentLoaded', () => {
+
+            bindMusicBarControls();
+
+            connectWS();
+
+            applyThemePreference(); // Apply theme on load
+
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', () => {
+                    const isDarkMode = document.documentElement.classList.contains('is-dark-mode');
+                    localStorage.setItem('darkMode', !isDarkMode);
+                    applyThemePreference(); // Re-apply to update icon and class
+                });
+            }
+
+        });

@@ -2,11 +2,15 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title id="pageTitle">JMusic Home</title>
+
+        <script src="/js/theme-initializer.js"></script>
 
         <!-- Bulma CSS -->
         <link rel="stylesheet" href="/css/bulma.min.css"/>
         <link rel="stylesheet" href="https://unpkg.com/primeicons@6.0.1/primeicons.css">
+        <link rel="stylesheet" href="/css/custom.css"/>
 
         <!-- HTMX -->
         <script src="/js/htmx.min.js"></script>
@@ -46,17 +50,23 @@
         <audio id="audioPlayer" preload="metadata"></audio>
 
         <!-- Hero layout -->
-        <section class="hero is-dark is-fullheight">
+        <section class="hero is-fullheight">
 
             <!-- Hero Head (Navbar) -->
             <div class="hero-head">
-                <nav class="navbar is-dark" role="navigation">
+                <nav class="navbar" role="navigation">
                     <div class="navbar-brand">
                         <a class="navbar-item" href="/index.html"><strong>JMusic</strong></a>
+                        <a role="button" class="navbar-item" id="themeToggle">
+                            <i class="pi pi-sun" id="themeIcon"></i>
+                        </a>
                         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navMenu">
                             <span aria-hidden="true"></span>
                             <span aria-hidden="true"></span>
                             <span aria-hidden="true"></span>
+                        </a>
+                        <a role="button" class="navbar-item is-hidden-desktop" id="sidebarToggle">
+                            <i class="pi pi-bars"></i>
                         </a>
                     </div>
                     <div id="navMenu" class="navbar-menu">
@@ -70,20 +80,27 @@
             </div>
 
             <!-- Hero Body (Main content area) -->
-            <div class="hero-body p-0 m-0">
-                <div class="columns m-1 p-0" style="width:100%;">
+            <div class="hero-body m-0 p-0">
+                <div class="columns p-0 m-0" style="width:100%;">
                     <!-- Playlist Sidebar -->
-                    <div class="column is-3 m-1 p-0" id="playlistSidebar">
-                        <div class="box" style="height: calc(100vh - 200px);">
-                            <button id="createPlaylistBtn" class="button is-primary is-fullwidth" style="margin-bottom:0.5rem;">
-                                <i class="pi pi-plus"></i> Create Playlist
-                            </button>
-                            <hr/>
-                            <div id="sidebarPlaylistList"
-                                 hx-get="/api/music/ui/playlists-fragment"
-                                 hx-trigger="load"
-                                 hx-swap="innerHTML">
-                                <!-- dynamically populated -->
+                    <div class="column is-3 is-hidden-mobile is-mobile-sidebar" id="playlistSidebar">
+                        <div class="card has-background-grey-darker has-text-white" style="height: calc(100vh - 200px);">
+                            <header class="card-header">
+                                <p class="card-header-title has-text-white">
+                                    Playlists
+                                </p>
+                            </header>
+                            <div class="card-content">
+                                <button id="createPlaylistBtn" class="button is-primary is-fullwidth" style="margin-bottom:0.5rem;">
+                                    <i class="pi pi-plus"></i> Create Playlist
+                                </button>
+                                <hr/>
+                                <div id="sidebarPlaylistList"
+                                     hx-get="/api/music/ui/playlists-fragment"
+                                     hx-trigger="load"
+                                     hx-swap="innerHTML">
+                                    <!-- dynamically populated -->
+                                </div>
                             </div>
 
                             <!-- Create Playlist Modal -->
@@ -118,26 +135,30 @@
                     </div>
 
                     <!-- Playlist View -->
-                    <div class="column is-9 ml-0 pl-0 " id="playlistView">
-                        <div class="box">
-                            <p id="playlistTitle" class="title is-4">All Songs</p>
-                            <div id="songListContainer" style="max-height: calc(100vh - 300px); overflow-y: auto;">
-                                <table id="songTable" class="table is-fullwidth is-hoverable is-striped"
-                                       hx-get="/api/music/ui/songs-fragment"
-                                       hx-trigger="load"
-                                       hx-swap="innerHTML">
-                                    <thead>
-                                        <tr>
-                                            <th>Title</th>
-                                            <th>Artist</th>
-                                            <th>Duration</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Songs populated via HTMX -->
-                                    </tbody>
-                                </table>
+                    <div class="column is-9 is-full-mobile" id="playlistView">
+                        <div class="card has-background-grey-darker has-text-white">
+                            <header class="card-header">
+                                <p id="playlistTitle" class="card-header-title has-text-white is-4">All Songs</p>
+                            </header>
+                            <div class="card-content">
+                                <div id="songListContainer" style="max-height: calc(100vh - 300px); overflow-y: auto;">
+                                    <table id="songTable" class="table is-fullwidth is-hoverable is-striped"
+                                           hx-get="/api/music/ui/songs-fragment"
+                                           hx-trigger="load"
+                                           hx-swap="innerHTML">
+                                        <thead>
+                                            <tr>
+                                                <th>Title</th>
+                                                <th>Artist</th>
+                                                <th>Duration</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Songs populated via HTMX -->
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -145,7 +166,7 @@
             </div>
 
             <!-- Hero Foot (Music Bar) -->
-            <div class="hero-foot box py-3">
+            <div class="hero-foot card has-background-grey-darker has-text-white m-3 p-3">
                 <nav class="level is-mobile">
 
                     <!-- LEFT: Song Info -->
@@ -153,7 +174,7 @@
                         <div class="level-item">
                             <div>
                                 <p id="songTitle" class="has-text-white has-text-weight-semibold is-size-6">Loading...</p>
-                                <p id="songArtist" class="has-text-grey-light is-size-7">Unknown Artist</p>
+                                <p id="songArtist" class="has-text-success is-size-7">Unknown Artist</p>
                             </div>
                         </div>
                     </div>
@@ -171,11 +192,11 @@
 
                         <!-- Progress bar -->
                         <div class="is-flex is-align-items-center is-justify-content-center" style="width: 100%;">
-                            <span id="currentTime" class="has-text-grey-light is-size-7 mr-2">0:00</span>
+                            <span id="currentTime" class="has-text-success has-text-weight-semibold is-size-7 mr-2">0:00</span>
                             <input type="range" min="0" max="100" value="0"
                                    style="width:100%"
                                    name="seconds"/>
-                            <span id="totalTime" class="has-text-grey-light is-size-7 ml-2">0:00</span>
+                            <span id="totalTime" class="has-text-success has-text-weight-semibold is-size-7 ml-2">0:00</span>
                         </div>
                     </div>
 

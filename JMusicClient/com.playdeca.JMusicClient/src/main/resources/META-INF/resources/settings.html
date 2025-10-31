@@ -2,11 +2,15 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title id="pageTitle">JMusic Settings</title>
+
+        <script src="/js/theme-initializer.js"></script>
 
         <!-- Bulma CSS -->
         <link rel="stylesheet" href="/css/bulma.min.css"/>
         <link rel="stylesheet" href="https://unpkg.com/primeicons@6.0.1/primeicons.css">
+        <link rel="stylesheet" href="/css/custom.css"/>
 
         <!-- HTMX -->
         <script src="/js/htmx.min.js"></script>
@@ -16,15 +20,15 @@
         <style>
             html, body {
                 height: 100%;
+                background-color: #222;
             }
 
-            .hero {
-                height: 100vh;
+            body {
                 display: flex;
                 flex-direction: column;
             }
 
-            .hero-body {
+            .content-wrapper {
                 flex-grow: 1;
                 overflow: auto;
             }
@@ -43,20 +47,25 @@
     </head>
     <body>
 
-        <audio id="audioPlayer" preload="metadata"></audio>
+        <audio id="audioPlayer" preload="metadata"></audio> 
 
-        <!-- Hero Layout -->
-        <section class="hero is-dark is-fullheight">
+        <section class="hero is-fullheight">
 
-            <!-- Hero Head: Navbar -->
+            <!-- Hero Head (Navbar) -->
             <div class="hero-head">
-                <nav class="navbar is-dark" role="navigation">
+                <nav class="navbar" role="navigation">
                     <div class="navbar-brand">
                         <a class="navbar-item" href="/index.html"><strong>JMusic</strong></a>
+                        <a role="button" class="navbar-item" id="themeToggle">
+                            <i class="pi pi-sun" id="themeIcon"></i>
+                        </a>
                         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navMenu">
                             <span aria-hidden="true"></span>
                             <span aria-hidden="true"></span>
                             <span aria-hidden="true"></span>
+                        </a>
+                        <a role="button" class="navbar-item is-hidden-desktop" id="sidebarToggle">
+                            <i class="pi pi-bars"></i>
                         </a>
                     </div>
                     <div id="navMenu" class="navbar-menu">
@@ -69,43 +78,84 @@
                 </nav>
             </div>
 
-            <!-- Hero Body: Settings Content -->
-            <div class="hero-body p-0 m-0">
-                <div class="columns m-1 p-0 is-multiline" style="width:100%"> 
-                    <!-- Main Settings Area -->
-                    <div class="column is-full ml-0 pl-0 has-text-centered">
-                        <div class="box">
-                            <h1 class="title is-4 ">Settings</h1>
+            <!-- Hero Body (Main content area) -->
+            <div class="hero-body m-0 p-0">
+                <div class="columns p-0 m-0" style="width:100%;">
+                    <!-- Settings Content -->
+                    <div class="content-wrapper" style="height: calc(100vh - 200px);">
+                        <section class="section">
+                            <div class="container">
+                                <h1 class="title has-text-white">Settings</h1>
+                                <div class="columns is-multiline">
 
-                            <div class="field">
-                                <label class="label">Music Library Folder</label>
-                                <div class="control is-flex is-align-items-center is-justify-content-space-between">
-                                    <p id="musicLibraryPath" class="has-text-weight-semibold">(not set)</p>
-                                    <button id="resetLibrary" class="button is-link">Reset to Default</button>
+                                    <!-- Library Management Card -->
+                                    <div class="column is-one-third">
+                                        <div class="card has-background-grey-darker has-text-white">
+                                            <header class="card-header">
+                                                <p class="card-header-title has-text-white">
+                                                    Library Management
+                                                </p>
+                                            </header>
+                                            <div class="card-content">
+                                                <div class="field">
+                                                    <label class="label has-text-white">Music Library Folder</label>
+                                                    <div class="control">
+                                                        <p id="musicLibraryPath" class="has-text-weight-semibold">(not set)</p>
+                                                    </div>
+                                                </div>
+                                                <div class="buttons">
+                                                    <button id="resetLibrary" class="button is-link">Reset to Default</button>
+                                                    <button id="scanLibrary" class="button is-primary">Scan Library</button>
+                                                    <button id="reloadMetadata" class="button is-info">Reload All Metadata</button>
+                                                    <button id="deleteDuplicates" class="button is-warning">Delete Duplicates</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Data Management Card -->
+                                    <div class="column is-one-third">
+                                        <div class="card has-background-grey-darker has-text-white">
+                                            <header class="card-header">
+                                                <p class="card-header-title has-text-white">
+                                                    Data Management
+                                                </p>
+                                            </header>
+                                            <div class="card-content">
+                                                <p class="subtitle has-text-white">Manage application data.</p>
+                                                <div class="buttons">
+                                                    <button id="clearLogs" class="button is-danger">Clear Logs</button>
+                                                    <button id="clearSongs" class="button is-warning">Clear Songs DB</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Logs Card -->
+                                    <div class="column is-one-third">
+                                        <div class="card has-background-grey-darker has-text-white">
+                                            <header class="card-header">
+                                                <p class="card-header-title has-text-white">
+                                                    Logs
+                                                </p>
+                                            </header>
+                                            <div class="card-content">
+                                                <div style="max-height: 200px; overflow-y: auto;" id="logsPanel">
+                                                    <!-- JS will populate logs here -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
-
-                            <div class="field mt-5">
-                                <button id="scanLibrary" class="button is-primary">Scan Library</button>
-                                <button id="clearLogs" class="button is-danger">Clear Logs</button>
-                                <button id="clearSongs" class="button is-warning">Clear Songs DB</button>
-                            </div>
-                        </div> 
-                    </div>
-
-                    <!-- Sidebar (empty placeholder for layout consistency) -->
-                    <div class="column is-full ml-0 pl-0 box">
-                        <h2 class="title is-4 has-text-centered">Logs</h2>
-                        <div style="max-height: 200px; overflow-y: auto;" id="logsPanel">
-                            <!-- JS will populate logs here -->
-                        </div>
-                    </div>
-
+                        </section>
+                    </div> 
                 </div>
             </div>
 
-            <!-- Hero Foot: Music Bar -->
-            <div class="hero-foot box py-3">
+            <!-- Hero Foot (Music Bar) -->
+            <div class="hero-foot card has-background-grey-darker has-text-white m-3 p-3">
                 <nav class="level is-mobile">
 
                     <!-- LEFT: Song Info -->
@@ -113,24 +163,29 @@
                         <div class="level-item">
                             <div>
                                 <p id="songTitle" class="has-text-white has-text-weight-semibold is-size-6">Loading...</p>
-                                <p id="songArtist" class="has-text-grey-light is-size-7">Unknown Artist</p>
+                                <p id="songArtist" class="has-text-success is-size-7">Unknown Artist</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- CENTER: Controls + Progress -->
                     <div class="level-item has-text-centered is-flex is-flex-direction-column is-align-items-center">
+                        <!-- Playback buttons -->
                         <div class="buttons are-small mb-2">
                             <button id="shuffleBtn" title="Shuffle"><i id="shuffleIcon" class="pi pi-sort-alt"></i></button>
-                            <button id="prevBtn" title="Previous"><i class="pi pi-step-backward"></i></button>
-                            <button id="playPauseBtn" title="Play/Pause"><i id="playPauseIcon" class="pi pi-play"></i></button>
-                            <button id="nextBtn" title="Next"><i class="pi pi-step-forward"></i></button>
-                            <button id="repeatBtn" title="Repeat"><i id="repeatIcon" class="pi pi-refresh"></i></button>
+                            <button id="prevBtn"  title="Previous"><i class="pi pi-step-backward"></i></button>
+                            <button id="playPauseBtn"  title="Play/Pause"><i id="playPauseIcon" class="pi pi-play"></i></button>
+                            <button id="nextBtn"   title="Next"><i class="pi pi-step-forward"></i></button>
+                            <button id="repeatBtn"   title="Repeat"><i id="repeatIcon" class="pi pi-refresh"></i></button>
                         </div>
+
+                        <!-- Progress bar -->
                         <div class="is-flex is-align-items-center is-justify-content-center" style="width: 100%;">
-                            <span id="currentTime" class="has-text-grey-light is-size-7 mr-2">0:00</span>
-                            <input type="range" min="0" max="100" value="0" style="width:100%" name="seconds"/>
-                            <span id="totalTime" class="has-text-grey-light is-size-7 ml-2">0:00</span>
+                            <span id="currentTime" class="has-text-success has-text-weight-semibold is-size-7 mr-2">0:00</span>
+                            <input type="range" min="0" max="100" value="0"
+                                   style="width:100%"
+                                   name="seconds"/>
+                            <span id="totalTime" class="has-text-success has-text-weight-semibold is-size-7 ml-2">0:00</span>
                         </div>
                     </div>
 
@@ -142,8 +197,7 @@
                                 <input type="range" min="0" max="100" value="80" name="level"/>
                             </div>
                         </div>
-                    </div>
-
+                    </div> 
                 </nav>
             </div>
 
@@ -157,8 +211,18 @@
                 document.getElementById("scanLibrary").onclick = () => window.scanLibrary();
                 document.getElementById("clearLogs").onclick = () => window.clearLogs();
                 document.getElementById("clearSongs").onclick = () => window.clearSongsDB();
+                document.getElementById("reloadMetadata").onclick = () => window.reloadMetadata();
+                document.getElementById("deleteDuplicates").onclick = () => window.deleteDuplicates();
                 window.refreshSettingsUI?.();
-                setInterval(() => window.refreshLogsPanel?.(), 500);
+                window.setupLogWebSocket?.();
+
+                // Navbar burger functionality
+                const burger = document.querySelector('.navbar-burger');
+                const menu = document.querySelector('.navbar-menu');
+                burger.addEventListener('click', () => {
+                    burger.classList.toggle('is-active');
+                    menu.classList.toggle('is-active');
+                });
             });
         </script>
 

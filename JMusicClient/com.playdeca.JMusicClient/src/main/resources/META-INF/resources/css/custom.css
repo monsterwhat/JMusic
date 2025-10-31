@@ -1,0 +1,162 @@
+/* Theme Variables */
+:root {
+    --background-color: #f5f5f5; /* Light mode background */
+    --text-color: #363636; /* Light mode text */
+    --card-background: #ffffff; /* Light mode card background */
+    --card-header-background: #f5f5f5; /* Light mode card header */
+    --navbar-background: #ffffff; /* Light mode navbar */
+    --navbar-text: #363636; /* Light mode navbar text */
+    --table-striped-background-odd: #ffffff; /* Light mode odd row background */
+    --table-striped-background-even: #f9f9f9; /* Light mode even row background */
+    --table-hover-background-odd: #f5f5f5; /* Lighter odd row hover for light mode */
+    --table-hover-background-even: #b8b4b4; /* Even lighter even row hover for light mode */
+    --table-hover-background-color: #d4edda; /* Light green hover for light mode */
+}
+
+html[data-theme="dark"] {
+    --background-color: #222222; /* Dark mode background */
+    --text-color: #f5f5f5; /* Dark mode text */
+    --card-background: #363636; /* Dark mode card background */
+    --card-header-background: #2f2f2f; /* Dark mode card header */
+    --navbar-background: #222222; /* Dark mode navbar */
+    --navbar-text: #f5f5f5; /* Dark mode navbar text */
+    --table-striped-background-odd: #363636; /* Dark mode odd row background */
+    --table-striped-background-even: #3a3a3a; /* Dark mode even row background */
+    --table-hover-background-odd: #4a4a4a; /* Dark mode odd row hover background */
+    --table-hover-background-even: #5a5a5a; /* Dark mode even row hover background */
+    --table-hover-background-color: #28a745; /* Light green hover for dark mode (adjust as needed for visibility) */
+}
+
+/* Apply Theme Variables */
+html,
+body {
+    background-color: var(--background-color) !important;
+    color: var(--text-color) !important;
+}
+
+.navbar.is-dark {
+    background-color: var(--navbar-background) !important;
+}
+
+.navbar-item, .navbar-link {
+    color: var(--navbar-text) !important;
+}
+
+/* Override Bulma's specific color classes */
+.has-background-dark {
+    background-color: var(--background-color) !important;
+}
+
+.has-background-grey-darker {
+    background-color: var(--card-background) !important;
+}
+
+.has-text-white {
+    color: var(--text-color) !important;
+}
+
+.title.has-text-white, .subtitle.has-text-white, .label.has-text-white {
+    color: var(--text-color) !important;
+}
+
+.card {
+    background-color: var(--card-background) !important;
+}
+
+.card-header-title {
+    background-color: var(--card-header-background) !important;
+    color: var(--text-color) !important;
+}
+
+/* Theme Toggle Button Styling */
+#themeToggle {
+    background: none;
+    border: none;
+    color: var(--navbar-text); /* Use navbar text color */
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0.5rem;
+    margin-left: 0.5rem;
+}
+
+#themeToggle:hover {
+    color: #00d1b2; /* Bulma primary color for hover */
+}
+
+#themeIcon {
+    vertical-align: middle;
+}
+
+/* Mobile-specific styles for music bar */
+@media (max-width: 768px) {
+    .box.has-background-black {
+        height: 30vh; /* Make music bar 30% of viewport height */
+        overflow-y: auto; /* Add scroll if content overflows */
+    }
+    .content-wrapper {
+        padding-bottom: 30vh; /* Adjust content wrapper padding to prevent overlap */
+    }
+
+    /* Mobile Sidebar Styling */
+    .is-mobile-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 80%; /* Adjust as needed */
+        z-index: 1000;
+        background-color: var(--background-color); /* Use theme background */
+        transform: translateX(-100%); /* Hidden by default */
+        transition: transform 0.3s ease-in-out;
+        padding: 1rem; /* Add some padding */
+        box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+    }
+
+    .is-mobile-sidebar.is-active {
+        transform: translateX(0%); /* Show when active */
+    }
+
+    /* Overlay for when sidebar is active */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 999;
+        display: none;
+    }
+
+    .sidebar-overlay.is-active {
+        display: block;
+    }
+}
+
+/* Table Theme Styling */
+.table {
+    background-color: transparent; /* Ensure table background is transparent to show card background */
+    color: var(--text-color); /* Inherit text color */
+}
+
+.table.is-striped tbody tr:not(.is-selected):nth-child(odd) {
+    background-color: var(--table-striped-background-odd); /* Use custom theme variable for odd striped background */
+}
+
+.table.is-striped tbody tr:not(.is-selected):nth-child(even) {
+    background-color: var(--table-striped-background-even); /* Use custom theme variable for even striped background */
+}
+
+.table.is-hoverable tbody tr:not(.is-selected):hover {
+    background-color: var(--table-hover-background-color); /* Use consistent light green hover background */
+}
+
+/* Ensure text in table headers and cells also respects theme */
+.table th, .table td {
+    color: var(--text-color);
+}
+
+input[type="range"] {
+    accent-color: #48c78e; /* Bulma's 'success' green */
+}
+ 
