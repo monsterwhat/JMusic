@@ -9,8 +9,8 @@ import Models.Song;
 import Services.SettingsService;
 import Services.SongService;
 
-import jakarta.inject.Inject;
 import jakarta.enterprise.context.ApplicationScoped; 
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.io.File;
 import java.io.PrintWriter;
@@ -298,6 +298,24 @@ public class SettingsController implements Serializable {
         }
         addLog("Duplicate deletion completed. " + songsToDelete.size() + " songs deleted.");
         musicSocket.broadcastAll(); // Trigger UI refresh
+    }
+
+    public void toggleTorrentBrowsing(boolean enabled) {
+        Settings currentSettings = settingsService.getOrCreateSettings();
+        settingsService.toggleTorrentBrowsing(currentSettings, enabled);
+        addLog("Torrent browsing feature toggled to: " + enabled);
+    }
+
+    public void toggleTorrentPeerDiscovery(boolean enabled) {
+        Settings currentSettings = settingsService.getOrCreateSettings();
+        settingsService.toggleTorrentPeerDiscovery(currentSettings, enabled);
+        addLog("Torrent peer discovery/sharing toggled to: " + enabled);
+    }
+
+    public void toggleTorrentDiscovery(boolean enabled) {
+        Settings currentSettings = settingsService.getOrCreateSettings();
+        settingsService.toggleTorrentDiscovery(currentSettings, enabled);
+        addLog("Torrent/Peer discovery toggled to: " + enabled);
     }
 
 }

@@ -5,8 +5,9 @@ import Controllers.TorrentController;
 import Models.Torrents.Core.Torrent;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
-import java.util.List;
+import jakarta.ws.rs.core.Response; 
+import Models.DTOs.CreateTorrentRequest;
+import Models.DTOs.UpdateTorrentRequest;
 import java.util.UUID;
 
 @Path("/api/torrents")
@@ -26,6 +27,12 @@ public class TorrentApi {
     }
 
     @GET
+    @Path("/paginated")
+    public Response listAllPaginated(@QueryParam("page") @DefaultValue("0") int pageNumber, @QueryParam("size") @DefaultValue("10") int pageSize, @QueryParam("tag") String tag, @QueryParam("sortBy") String sortBy, @QueryParam("order") String order) {
+        return Response.ok(ApiResponse.success(controller.listAllTorrentsPaginatedAndFiltered(pageNumber, pageSize, tag, sortBy, order))).build();
+    }
+
+    @GET
     @Path("/{id}")
     public Response get(@PathParam("id") UUID id) {
         Torrent torrent = controller.getTorrent(id);
@@ -38,20 +45,33 @@ public class TorrentApi {
     @POST
     public Response create(CreateTorrentRequest request) {
         try {
-            Torrent created = controller.createTorrent(
-                    request.name(),
-                    request.infoHash(),
-                    request.creatorId(),
-                    request.tags()
-            );
+            Torrent created = controller.createTorrent(request);
             return Response.status(Response.Status.CREATED).entity(ApiResponse.success(created)).build();
         } catch (Exception e) {
             return Response.status(Response.Status.BAD_REQUEST).entity(ApiResponse.error(e.getMessage())).build();
         }
     }
 
-    // Use a dedicated DTO for requests instead of expecting full Torrent JSON
-    public record CreateTorrentRequest(String name, String infoHash, UUID creatorId, List<String> tags) {
-
+    @PUT
+    @Path("/{id}")
+    public Response update(@PathParam("id") UUID id, UpdateTorrentRequest request) {
+        try {
+            Torrent updated = controller.updateTorrent(id, request);
+            return Response.ok(ApiResponse.success(updated)).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(ApiResponse.error(e.getMessage())).build();
+        }
     }
-}
+
+    @DELETE
+    @Path("/{id}")
+    public Response delete(@PathParam("id") UUID id) {
+        try {
+            controller.deleteTorrent(id);
+            return Response.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND).entity(ApiResponse.error(e.getMessage())).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity(ApiResponse.error(e.getMessage())).build();
+        }
+    }}

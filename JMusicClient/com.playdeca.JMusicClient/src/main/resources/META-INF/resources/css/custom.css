@@ -159,4 +159,36 @@ body {
 input[type="range"] {
     accent-color: #48c78e; /* Bulma's 'success' green */
 }
- 
+
+.marquee {
+    white-space: nowrap;
+    /* animation will be applied by JS */
+}
+
+.no-scroll {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@keyframes marquee {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
+}
+
+.is-clickable {
+    cursor: pointer;
+}
+
+#songQueueTable td {
+    padding: 0.25em 0.5em; /* Smaller padding for queue table cells */
+}
+
+/* Class for visually and functionally disabling content */
+.is-disabled-overlay {
+    opacity: 0.5; /* Dim the content */
+    pointer-events: none; /* Prevent all mouse events */
+}

@@ -65,7 +65,7 @@
                             <span aria-hidden="true"></span>
                             <span aria-hidden="true"></span>
                         </a>
-                        <a role="button" class="navbar-item is-hidden-desktop" id="sidebarToggle">
+                        <a role="button" class="navbar-item is-hidden-desktop is-hidden-mobile" id="sidebarToggle">
                             <i class="pi pi-bars"></i>
                         </a>
                     </div>
@@ -81,16 +81,23 @@
 
             <!-- Hero Body (Main content area) -->
             <div class="hero-body m-0 p-0">
+                
                 <div class="columns p-0 m-0" style="width:100%;">
+                    
                     <!-- Playlist Sidebar -->
                     <div class="column is-3 is-hidden-mobile is-mobile-sidebar" id="playlistSidebar">
-                        <div class="card has-background-grey-darker has-text-white" style="height: calc(100vh - 200px);">
+                        <div class="card has-background-grey-darker has-text-white" style="height: calc(35vh - 100px);">
                             <header class="card-header">
                                 <p class="card-header-title has-text-white">
                                     Playlists
                                 </p>
+                                <button class="card-header-icon" aria-label="more options" id="togglePlaylistsBtn">
+                                    <span class="icon">
+                                        <i class="pi pi-angle-up" aria-hidden="true"></i>
+                                    </span>
+                                </button>
                             </header>
-                            <div class="card-content">
+                            <div class="card-content is-hidden" id="playlistsContent">
                                 <button id="createPlaylistBtn" class="button is-primary is-fullwidth" style="margin-bottom:0.5rem;">
                                     <i class="pi pi-plus"></i> Create Playlist
                                 </button>
@@ -132,6 +139,35 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="card has-background-grey-darker has-text-white mt-4" id="songQueueCard">
+                            <header class="card-header">
+                                <p class="card-header-title has-text-white">
+                                    Song Queue
+                                </p>
+                                <button class="card-header-icon" aria-label="more options" id="toggleQueueBtn">
+                                    <span class="icon">
+                                        <i class="pi pi-angle-up" aria-hidden="true"></i>
+                                    </span>
+                                </button>
+                            </header>
+                            <div class="card-content p-0" id="queueContent">
+                                <div id="songQueueContainer" style="max-height: calc(40vh - 100px); overflow-y: scroll;">
+                                    <table id="songQueueTable" class="table is-fullwidth is-hoverable is-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Title</th>
+                                                <th>Artist</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Queue populated via HTMX -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <button id="clearQueueBtn" class="button is-danger is-fullwidth mt-2">Clear Queue</button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Playlist View -->
@@ -139,8 +175,13 @@
                         <div class="card has-background-grey-darker has-text-white">
                             <header class="card-header">
                                 <p id="playlistTitle" class="card-header-title has-text-white is-4">All Songs</p>
+                                <button class="card-header-icon" aria-label="more options" id="toggleAllSongsBtn">
+                                    <span class="icon">
+                                        <i class="pi pi-angle-down" aria-hidden="true"></i>
+                                    </span>
+                                </button>
                             </header>
-                            <div class="card-content">
+                            <div class="card-content" id="allSongsContent">
                                 <div id="songListContainer" style="max-height: calc(100vh - 300px); overflow-y: auto;">
                                     <table id="songTable" class="table is-fullwidth is-hoverable is-striped"
                                            hx-get="/api/music/ui/songs-fragment"
@@ -162,6 +203,11 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- TODO -->
+                    <!-- Create another column below the playlists one (so same size, column is-3 is-hidden-mobile is-mobile-sidebar )
+                        Have this column contain the current Song Queue as a table with the same style as the other ones, with a button to skip to song in queue, remove song from queue and clear queue, allow minimizing it to a small tab with only the title -->
+                    
                 </div>
             </div>
 
@@ -170,7 +216,7 @@
                 <nav class="level is-mobile">
 
                     <!-- LEFT: Song Info -->
-                    <div class="level-left">
+                    <div class="level-left is-hidden-mobile">
                         <div class="level-item">
                             <div>
                                 <p id="songTitle" class="has-text-white has-text-weight-semibold is-size-6">Loading...</p>
@@ -180,7 +226,7 @@
                     </div>
 
                     <!-- CENTER: Controls + Progress -->
-                    <div class="level-item has-text-centered is-flex is-flex-direction-column is-align-items-center">
+                    <div class="level-item has-text-centered is-flex is-flex-direction-column is-align-items-center" style="width: 100%; flex-grow: 1; flex-shrink: 1;">
                         <!-- Playback buttons -->
                         <div class="buttons are-small mb-2">
                             <button id="shuffleBtn" title="Shuffle"><i id="shuffleIcon" class="pi pi-sort-alt"></i></button>
@@ -198,10 +244,20 @@
                                    name="seconds"/>
                             <span id="totalTime" class="has-text-success has-text-weight-semibold is-size-7 ml-2">0:00</span>
                         </div>
+
+                        <!-- Song Info for mobile -->
+                        <div class="is-hidden-desktop mt-2" style="width: 100%;">
+                            <div style="overflow: hidden;">
+                                <p id="songTitleMobile" class="has-text-white has-text-weight-semibold is-size-6 marquee">Loading...</p>
+                            </div>
+                            <div style="overflow: hidden;">
+                                <p id="songArtistMobile" class="has-text-success is-size-7 marquee">Unknown Artist</p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- RIGHT: Volume -->
-                    <div class="level-right">
+                    <div class="level-right is-hidden-mobile">
                         <div class="level-item">
                             <div class="is-flex is-align-items-center">
                                 <i class="pi pi-volume-up has-text-white mr-2"></i>
@@ -216,5 +272,7 @@
 
         <script src="/js/musicBar.js"></script>
         <script src="/js/playlistBar.js"></script>
+        <script src="/js/navbar.js"></script>
+        <script src="/js/songQueue.js"></script>
     </body>
 </html>

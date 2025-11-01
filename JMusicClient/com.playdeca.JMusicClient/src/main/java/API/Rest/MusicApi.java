@@ -299,4 +299,38 @@ public class MusicApi {
         return new File(settings.getLibraryPath());
     }
 
+    // -------------------------
+    // Queue endpoints
+    // -------------------------
+    @GET
+    @Path("/queue")
+    public Response getQueue() {
+        return Response.ok(ApiResponse.success(playbackController.getQueue())).build();
+    }
+
+    @POST
+    @Path("/queue/skip-to/{index}")
+    @Consumes(MediaType.WILDCARD)
+    public Response skipToQueueIndex(@PathParam("index") int index) {
+        playbackController.skipToQueueIndex(index);
+        return Response.ok(ApiResponse.success("Skipped to song in queue")).build();
+    }
+
+    @POST
+    @Path("/queue/remove/{index}")
+    @Consumes(MediaType.WILDCARD)
+    public Response removeFromQueue(@PathParam("index") int index) {
+        playbackController.removeFromQueue(index);
+        return Response.ok(ApiResponse.success("Removed song from queue")).build();
+    }
+
+    @POST
+    @Path("/queue/clear")
+    @Consumes(MediaType.WILDCARD)
+    public Response clearQueue() {
+        playbackController.clearQueue();
+        return Response.ok(ApiResponse.success("Queue cleared")).build();
+    }
+
 }
+

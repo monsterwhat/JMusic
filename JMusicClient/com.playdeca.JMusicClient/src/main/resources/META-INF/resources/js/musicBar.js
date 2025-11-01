@@ -38,6 +38,21 @@ function throttle(func, delay) {
     };
 }
 
+function applyMarqueeEffect(elementId, text) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.innerText = text; // Set text first
+        // Check if text overflows
+        if (element.scrollWidth > element.clientWidth) {
+            element.classList.add('marquee');
+            element.classList.remove('no-scroll');
+        } else {
+            element.classList.remove('marquee');
+            element.classList.add('no-scroll');
+        }
+    }
+}
+
 function updateMusicBar() {
     const {songName, artist, playing, currentTime, duration, volume, shuffleEnabled, repeatEnabled} = musicState;
 
@@ -47,6 +62,10 @@ function updateMusicBar() {
         titleEl.innerText = songName ?? "Unknown Title";
     if (artistEl)
         artistEl.innerText = artist ?? "Unknown Artist";
+
+    // Apply marquee effect for mobile elements
+    applyMarqueeEffect('songTitleMobile', songName ?? "Unknown Title");
+    applyMarqueeEffect('songArtistMobile', artist ?? "Unknown Artist");
 
     document.getElementById('playPauseIcon').className = playing
             ? "pi pi-pause button is-warning is-rounded is-large"
@@ -79,7 +98,6 @@ function updateMusicBar() {
 const throttledSendWS = throttle(sendWS, 300); // Send a message at most every 300ms
 
 function sendWS(type, payload) {
-    console.log("[musicBar.js] sendWS: Sending type=", type, "payload=", payload);
     if (ws && ws.readyState === WebSocket.OPEN)
         ws.send(JSON.stringify({type, payload}));
 }
@@ -89,7 +107,7 @@ audio.ontimeupdate = () => {
         musicState.currentTime = audio.currentTime;
         throttledSendWS("seek", {value: audio.currentTime});
         updateMusicBar(); // Update UI more frequently
-        console.log("[musicBar.js] ontimeupdate: audio.currentTime=", audio.currentTime, "musicState.currentTime=", musicState.currentTime);
+
     }
 };
 
@@ -142,7 +160,7 @@ function UpdateAudioSource(song, play = false, backendTime = 0) {
         }
         audio.currentTime = musicState.currentTime; // set backend time after duration is known
         if (play)
-            audio.play().catch(console.warn);
+            audio.play().catch(console.error);
         updateMusicBar();
         console.log("[musicBar.js] onloadedmetadata: musicState.duration (final)=", musicState.duration);
     };
@@ -166,7 +184,6 @@ function UpdateAudioSource(song, play = false, backendTime = 0) {
         let message;
         try {
             message = JSON.parse(msg.data);
-            console.log("[musicBar.js] handleWSMessage: Received message type=", message.type, "payload=", message.payload);
         } catch (e) {
             return console.error(e);
         }
@@ -176,26 +193,30 @@ function UpdateAudioSource(song, play = false, backendTime = 0) {
             const songChanged = String(state.currentSongId) !== String(musicState.currentSongId);
             const playChanged = state.playing !== musicState.playing;
     
-            musicState.currentSongId = state.currentSongId;
-            // musicState.songName = state.songName; // Removed: Prioritize API for songName
-            musicState.artist = state.artist ?? "Unknown Artist";
-            musicState.playing = state.playing;
-            musicState.currentTime = state.currentTime;
-            musicState.duration = state.duration;
-            musicState.volume = state.volume;
-            musicState.shuffleEnabled = state.shuffleEnabled;
-            musicState.repeatEnabled = state.repeatEnabled;
-    
-            if (songChanged) {
-                fetch(`/api/music/playback/current`)
-                    .then(r => r.json())
-                    .then(json => {
-                        if (json.data) {
-                            UpdateAudioSource(json.data, state.playing, state.currentTime ?? 0);
-                            refreshSongTable();
-                        }
-                    });
-            } else if (playChanged) { // If only play state changed, re-initialize audio source to ensure duration is correct
+                        musicState.currentSongId = state.currentSongId;
+                        // musicState.songName = state.songName; // Removed: Prioritize API for songName
+                        musicState.artist = state.artist ?? "Unknown Artist";
+                        musicState.playing = state.playing;
+                        musicState.currentTime = state.currentTime;
+                        musicState.duration = state.duration;
+                        musicState.volume = state.volume;
+                        musicState.shuffleEnabled = state.shuffleEnabled;
+                        musicState.repeatEnabled = state.repeatEnabled;
+            
+                        console.log("[WS] handleWSMessage: songChanged=", songChanged, "state.currentSongId=", state.currentSongId, "musicState.currentSongId=", musicState.currentSongId);
+            
+                        if (songChanged) {
+                            console.log("[WS] handleWSMessage: Song changed, fetching current song details.");
+                            fetch(`/api/music/playback/current`)
+                                .then(r => r.json())
+                                .then(json => {
+                                    if (json.data) {
+                                        console.log("[WS] handleWSMessage: Calling UpdateAudioSource with data:", json.data);
+                                        UpdateAudioSource(json.data, state.playing, state.currentTime ?? 0);
+                                        refreshSongTable();
+                                        htmx.trigger('body', 'queueChanged');
+                                    }
+                                });            } else if (playChanged) { // If only play state changed, re-initialize audio source to ensure duration is correct
                 fetch(`/api/music/playback/current`)
                     .then(r => r.json())
                     .then(json => {
@@ -225,7 +246,6 @@ function UpdateAudioSource(song, play = false, backendTime = 0) {
     }
     
     function sendWS(type, payload) {
-        console.log("[musicBar.js] sendWS: Sending type=", type, "payload=", payload);
         if (ws && ws.readyState === WebSocket.OPEN)
             ws.send(JSON.stringify({type, payload}));
     }

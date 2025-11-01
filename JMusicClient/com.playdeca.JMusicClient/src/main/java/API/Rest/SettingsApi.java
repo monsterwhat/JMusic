@@ -32,6 +32,18 @@ public class SettingsApi {
     }
 
     // -----------------------------
+    // TOGGLE RUN AS SERVICE
+    // -----------------------------
+    @POST
+    @Path("/toggle-run-as-service")
+    @Transactional
+    @Consumes(MediaType.WILDCARD)
+    public Response toggleRunAsService() {
+        settingsController.toggleAsService();
+        return Response.ok(ApiResponse.success(settingsController.getOrCreateSettings())).build();
+    }
+
+    // -----------------------------
     // RESET LIBRARY PATH
     // -----------------------------
     @POST
@@ -121,5 +133,38 @@ public class SettingsApi {
         }, "DeleteDuplicatesThread").start();
 
         return Response.ok(ApiResponse.success("Duplicate deletion started")).build();
+    }
+
+    // -----------------------------
+    // TOGGLE TORRENT BROWSING
+    // -----------------------------
+    @POST
+    @Path("/toggleTorrentBrowsing")
+    @Transactional
+    public Response toggleTorrentBrowsing(@QueryParam("enabled") boolean enabled) {
+        settingsController.toggleTorrentBrowsing(enabled);
+        return Response.ok(ApiResponse.success(settingsController.getOrCreateSettings())).build();
+    }
+
+    // -----------------------------
+    // TOGGLE TORRENT PEER DISCOVERY
+    // -----------------------------
+    @POST
+    @Path("/toggleTorrentPeerDiscovery")
+    @Transactional
+    public Response toggleTorrentPeerDiscovery(@QueryParam("enabled") boolean enabled) {
+        settingsController.toggleTorrentPeerDiscovery(enabled);
+        return Response.ok(ApiResponse.success(settingsController.getOrCreateSettings())).build();
+    }
+
+    // -----------------------------
+    // TOGGLE TORRENT DISCOVERY
+    // -----------------------------
+    @POST
+    @Path("/toggleTorrentDiscovery")
+    @Transactional
+    public Response toggleTorrentDiscovery(@QueryParam("enabled") boolean enabled) {
+        settingsController.toggleTorrentDiscovery(enabled);
+        return Response.ok(ApiResponse.success(settingsController.getOrCreateSettings())).build();
     }
 }

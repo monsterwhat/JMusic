@@ -1,12 +1,14 @@
 package Controllers;
-
+ 
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import io.quarkus.runtime.Quarkus;
 import io.quarkus.runtime.Startup;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.PreDestroy;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
-import jakarta.inject.Inject;
 import java.awt.AWTException;
 import java.awt.Desktop;
 import java.awt.Image;
@@ -25,6 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Startup
 public class DesktopController {
 
+    private static final Logger LOG = LoggerFactory.getLogger(DesktopController.class);
+
     @Inject
     SettingsController settings;
 
@@ -35,6 +39,11 @@ public class DesktopController {
     private TrayIcon trayIcon; // keep reference to ensure only one icon
 
     void onStart(@Observes StartupEvent ev) {
+        LOG.info("\n" +
+                 "JMusicClient - Free Software\n" +
+                 "This program comes with ABSOLUTELY NO WARRANTY; for details see GPL-3.0.txt.\n" +
+                 "This is free software, and you are welcome to redistribute it\n" +
+                 "under certain conditions; see GPL-3.0.txt for details.");
         settings.addLog("Application starting...");
         startTrayIcon();
         startBrowser();
@@ -58,9 +67,13 @@ public class DesktopController {
         }
 
         // Prevent adding multiple tray icons
-        if (trayIcon != null) {
-            return;
+        for (TrayIcon existingIcon : SystemTray.getSystemTray().getTrayIcons()) {
+            if (existingIcon.getToolTip().equals("JMusicClient")) {
+                SystemTray.getSystemTray().remove(existingIcon);
+            }
         }
+
+
 
         PopupMenu menu = new PopupMenu();
 
@@ -78,7 +91,7 @@ public class DesktopController {
         menu.add(exitItem);
 
         // Create tray icon
-        Image iconImage = loadImage("logo.png");
+        Image iconImage = loadImage("META-INF/resources/logo.png");
         if (iconImage == null) {
             System.out.println("Failed to load tray icon image!");
         } else {
@@ -126,7 +139,7 @@ public class DesktopController {
             activeClients.set(0);
         }
 
-        if (settings.getOrCreateSettings().getRunAsService()) {
+        if (!settings.getOrCreateSettings().getRunAsService()) { // Only shut down if not running as a service
             scheduler.schedule(() -> {
                 if (activeClients.get() <= 0 && hasHadClient) {
                     Quarkus.asyncExit(); // graceful shutdown
@@ -141,8 +154,12 @@ public class DesktopController {
 
     @PreDestroy
     void shutdownScheduler() {
-        settings.addLog("Application shutting down.");
         scheduler.shutdown();
+        if (trayIcon != null) {
+            SystemTray.getSystemTray().remove(trayIcon);
+            trayIcon = null; // Clear the static reference
+        }
+        settings.addLog("Application shutting down.");
     }
 
 }

@@ -15,7 +15,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class PlaybackController {
@@ -36,6 +39,8 @@ public class PlaybackController {
     PlaylistService playlistService;
     @Inject
     MusicSocket ws;
+
+    private static final Logger LOGGER = Logger.getLogger(PlaybackController.class.getName());
 
     public PlaybackController() {
         System.out.println("[PlaybackController] PlaybackController instance created");
@@ -733,6 +738,57 @@ public class PlaybackController {
                 .map(s -> s.id)
                 .toList();
         addToQueue(songIds, playNext);
+    }
+
+    public synchronized List<Song> getQueue() {
+        PlaybackState st = getState();
+        List<Long> cueIds = st.getCue();
+        if (cueIds == null) {
+            return new ArrayList<>();
+        }
+        return cueIds.stream()
+                .map(this::findSong)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    public synchronized void skipToQueueIndex(int index) {
+                LOGGER.info("skipToQueueIndex called with index: " + index);
+                PlaybackState st = getState();
+                List<Long> cue = st.getCue();
+                LOGGER.info("skipToQueueIndex: Original cue: " + cue);
+                if (cue == null || index < 0 || index >= cue.size()) {
+                    LOGGER.warning("skipToQueueIndex: Invalid index or empty cue. Index: " + index + ", Cue size: " + (cue != null ? cue.size() : "null"));
+                    return;
+                }
+        
+                        // Keep songs up to and including the skipped song, remove the rest
+                        List<Long> newCue = new ArrayList<>(cue.subList(0, index + 1));
+                        st.setCue(newCue);
+                        st.setCueIndex(index); // The skipped song is still at its original index in the new cue
+                
+                        Long songId = newCue.get(index); // Get the song at the new current index
+                        st.setCurrentSongId(songId);
+                        LOGGER.info("skipToQueueIndex: Setting current songId to: " + songId);
+                        Song newSong = findSong(songId);        LOGGER.info("skipToQueueIndex: Found song for ID " + songId + ": " + (newSong != null ? newSong.getTitle() : "null"));
+        st.setArtistName(newSong != null ? newSong.getArtist() : "Unknown Artist");
+        st.setSongName(newSong != null ? newSong.getTitle() : "Unknown Title");
+        st.setDuration(newSong != null ? newSong.getDurationSeconds() : 0);
+        st.setPlaying(true);
+        st.setCurrentTime(0);
+        updateLastSongs(st, songId);
+        updateState(st, true);
+    } 
+
+    public synchronized void removeFromQueue(int index) {
+        PlaybackState st = getState();
+        List<Long> cue = st.getCue();
+        if (cue == null || cue.isEmpty() || index < 0 || index >= cue.size()) {
+            return;
+        }
+
+        Long songIdToRemove = cue.get(index);
+        removeFromQueue(songIdToRemove); // Reuse existing logic
     }
 
 }

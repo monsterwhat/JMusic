@@ -14,6 +14,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
+import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -42,6 +43,9 @@ public class Torrent {
     private Instant lastSeen;
     private boolean verified;
     private boolean active;
+
+    @Lob
+    private byte[] torrentSignature; // Cryptographic signature of the torrent infoHash and creatorId
 
     // Overlay metadata
     @ManyToOne

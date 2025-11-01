@@ -64,7 +64,7 @@
                             <span aria-hidden="true"></span>
                             <span aria-hidden="true"></span>
                         </a>
-                        <a role="button" class="navbar-item is-hidden-desktop" id="sidebarToggle">
+                        <a role="button" class="navbar-item is-hidden-desktop is-hidden-mobile" id="sidebarToggle">
                             <i class="pi pi-bars"></i>
                         </a>
                     </div>
@@ -95,8 +95,13 @@
                                                 <p class="card-header-title has-text-white">
                                                     Library Management
                                                 </p>
+                                                <button class="card-header-icon" aria-label="more options" id="toggleLibraryManagementBtn">
+                                                    <span class="icon">
+                                                        <i class="pi pi-angle-down" aria-hidden="true"></i>
+                                                    </span>
+                                                </button>
                                             </header>
-                                            <div class="card-content">
+                                            <div class="card-content" id="libraryManagementContent">
                                                 <div class="field">
                                                     <label class="label has-text-white">Music Library Folder</label>
                                                     <div class="control">
@@ -113,24 +118,57 @@
                                         </div>
                                     </div>
 
-                                    <!-- Data Management Card -->
+                                                                         <!-- Data Management Card -->
+                                                                        <div class="column is-one-third">
+                                                                            <div class="card has-background-grey-darker has-text-white">
+                                                                                <header class="card-header">
+                                                                                    <p class="card-header-title has-text-white">
+                                                                                        Data Management
+                                                                                    </p>
+                                                                                    <button class="card-header-icon" aria-label="more options" id="toggleDataManagementBtn">
+                                                                                        <span class="icon">
+                                                                                            <i class="pi pi-angle-down" aria-hidden="true"></i>
+                                                                                        </span>
+                                                                                    </button>
+                                                                                </header>
+                                                                                <div class="card-content" id="dataManagementContent">
+                                                                                    <p class="subtitle has-text-white">Manage application data.</p>
+                                                                                    <div class="buttons">
+                                                                                        <button id="clearLogs" class="button is-danger">Clear Logs</button>
+                                                                                        <button id="clearSongs" class="button is-warning">Clear Songs DB</button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                    <!-- Application Settings Card -->
                                     <div class="column is-one-third">
                                         <div class="card has-background-grey-darker has-text-white">
                                             <header class="card-header">
                                                 <p class="card-header-title has-text-white">
-                                                    Data Management
+                                                    Application Settings
                                                 </p>
+                                                <button class="card-header-icon" aria-label="more options" id="toggleApplicationSettingsBtn">
+                                                    <span class="icon">
+                                                        <i class="pi pi-angle-down" aria-hidden="true"></i>
+                                                    </span>
+                                                </button>
                                             </header>
-                                            <div class="card-content">
-                                                <p class="subtitle has-text-white">Manage application data.</p>
-                                                <div class="buttons">
-                                                    <button id="clearLogs" class="button is-danger">Clear Logs</button>
-                                                    <button id="clearSongs" class="button is-warning">Clear Songs DB</button>
+                                            <div class="card-content" id="applicationSettingsContent">
+                                                <div class="field">
+                                                    <label class="switch is-info">
+                                                        <input id="runAsServiceToggle" type="checkbox" name="runAsServiceToggle"
+                                                               hx-post="/api/settings/toggle-run-as-service"
+                                                               hx-trigger="change"
+                                                               hx-swap="none">
+                                                        <span class="check"></span>
+                                                        <span class="control-label has-text-white">Run as Service</span>
+                                                    </label>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-
+                                    
                                     <!-- Logs Card -->
                                     <div class="column is-one-third">
                                         <div class="card has-background-grey-darker has-text-white">
@@ -138,10 +176,59 @@
                                                 <p class="card-header-title has-text-white">
                                                     Logs
                                                 </p>
+                                                <button class="card-header-icon" aria-label="more options" id="toggleLogsBtn">
+                                                    <span class="icon">
+                                                        <i class="pi pi-angle-down" aria-hidden="true"></i>
+                                                    </span>
+                                                </button>
                                             </header>
-                                            <div class="card-content">
+                                            <div class="card-content" id="logsCardContent">
                                                 <div style="max-height: 200px; overflow-y: auto;" id="logsPanel">
                                                     <!-- JS will populate logs here -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Browse Management Card -->
+                                    <div class="column is-one-third">
+                                        <div class="card has-background-grey-darker has-text-white">
+                                            <header class="card-header">
+                                                <p class="card-header-title has-text-white">
+                                                    Torrent Management                                                                                    </p>
+                                                <button class="card-header-icon" aria-label="more options" id="toggleTorrentManagementBtn">
+                                                    <span class="icon">
+                                                        <i class="pi pi-angle-down" aria-hidden="true"></i>
+                                                    </span>
+                                                </button>
+                                                <div class="card-header-icon">
+                                                    <label class="switch is-info">
+                                                        <input id="torrentBrowsingToggle" type="checkbox" name="torrentBrowsingToggle">
+                                                        <span class="check"></span>
+                                                    </label>
+                                                </div>
+                                            </header>
+                                            <div class="card-content" id="browseManagementContent">
+                                                <p class="subtitle has-text-white">Manage browse content.</p>
+                                                <div class="field">
+                                                    <label class="switch is-info">
+                                                        <input id="torrentPeerDiscoveryToggle" type="checkbox" name="torrentPeerDiscoveryToggle">
+                                                        <span class="check"></span>
+                                                        <span class="control-label has-text-white" onmouseover="this.title='Automatically share torrents with peers.'">Toggle Auto Peer Sharing</span>
+                                                    </label>
+                                                </div>
+                                                <div class="field">
+                                                    <label class="switch is-info">
+                                                        <input id="torrentDiscoveryToggle" type="checkbox" name="torrentDiscoveryToggle">
+                                                        <span class="check"></span>
+                                                        <span class="control-label has-text-white" onmouseover="this.title='Automatically discover and share torrents.'">Toggle Auto Torrent Sharing</span>
+                                                    </label>
+                                                </div>
+                                                <div class="buttons mt-3">
+                                                    <button id="createUserKey" class="button is-link">Create/Update User Key</button>
+                                                    <button id="shareCodeQrCode" class="button is-info">Share Code/QR Code</button>
+                                                    <button id="addCodeQrCode" class="button is-success">Add Code/QR Code</button>
+                                                    <button id="rescanNetwork" class="button is-warning">Re-scan Network</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -159,7 +246,7 @@
                 <nav class="level is-mobile">
 
                     <!-- LEFT: Song Info -->
-                    <div class="level-left">
+                    <div class="level-left is-hidden-mobile">
                         <div class="level-item">
                             <div>
                                 <p id="songTitle" class="has-text-white has-text-weight-semibold is-size-6">Loading...</p>
@@ -169,7 +256,7 @@
                     </div>
 
                     <!-- CENTER: Controls + Progress -->
-                    <div class="level-item has-text-centered is-flex is-flex-direction-column is-align-items-center">
+                    <div class="level-item has-text-centered is-flex is-flex-direction-column is-align-items-center" style="width: 100%; flex-grow: 1; flex-shrink: 1;">
                         <!-- Playback buttons -->
                         <div class="buttons are-small mb-2">
                             <button id="shuffleBtn" title="Shuffle"><i id="shuffleIcon" class="pi pi-sort-alt"></i></button>
@@ -187,10 +274,20 @@
                                    name="seconds"/>
                             <span id="totalTime" class="has-text-success has-text-weight-semibold is-size-7 ml-2">0:00</span>
                         </div>
+
+                        <!-- Song Info for mobile -->
+                        <div class="is-hidden-desktop mt-2" style="width: 100%;">
+                            <div style="overflow: hidden;">
+                                <p id="songTitleMobile" class="has-text-white has-text-weight-semibold is-size-6 marquee">Loading...</p>
+                            </div>
+                            <div style="overflow: hidden;">
+                                <p id="songArtistMobile" class="has-text-success is-size-7 marquee">Unknown Artist</p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- RIGHT: Volume -->
-                    <div class="level-right">
+                    <div class="level-right is-hidden-mobile">
                         <div class="level-item">
                             <div class="is-flex is-align-items-center">
                                 <i class="pi pi-volume-up has-text-white mr-2"></i>
@@ -205,26 +302,7 @@
 
         <script src="/js/musicBar.js"></script>
         <script src="/js/settings.js"></script>
-        <script>
-            document.addEventListener("DOMContentLoaded", () => {
-                document.getElementById("resetLibrary").onclick = () => window.resetLibrary();
-                document.getElementById("scanLibrary").onclick = () => window.scanLibrary();
-                document.getElementById("clearLogs").onclick = () => window.clearLogs();
-                document.getElementById("clearSongs").onclick = () => window.clearSongsDB();
-                document.getElementById("reloadMetadata").onclick = () => window.reloadMetadata();
-                document.getElementById("deleteDuplicates").onclick = () => window.deleteDuplicates();
-                window.refreshSettingsUI?.();
-                window.setupLogWebSocket?.();
-
-                // Navbar burger functionality
-                const burger = document.querySelector('.navbar-burger');
-                const menu = document.querySelector('.navbar-menu');
-                burger.addEventListener('click', () => {
-                    burger.classList.toggle('is-active');
-                    menu.classList.toggle('is-active');
-                });
-            });
-        </script>
+        <script src="/js/navbar.js"></script>
 
     </body>
 </html>

@@ -39,7 +39,51 @@ public class TorrentService {
     }
 
     @Transactional
+    public Torrent updateTorrent(Torrent torrent) {
+        return em.merge(torrent);
+    }
+
+    @Transactional
     public List<Torrent> findAll() {
         return em.createQuery("SELECT t FROM Torrent t", Torrent.class).getResultList();
+    }
+
+    @Transactional
+    public List<Torrent> findAll(int pageNumber, int pageSize, String sortBy, String order) {
+        String orderByClause = "ORDER BY t." + sortBy + " " + order;
+        return em.createQuery("SELECT t FROM Torrent t " + orderByClause, Torrent.class)
+                .setFirstResult(pageNumber * pageSize)
+                .setMaxResults(pageSize)
+                .getResultList();
+    }
+
+    @Transactional
+    public long countAll() {
+        return em.createQuery("SELECT COUNT(t) FROM Torrent t", Long.class).getSingleResult();
+    }
+
+    @Transactional
+    public List<Torrent> findAllByTag(String tag, int pageNumber, int pageSize, String sortBy, String order) {
+        String orderByClause = "ORDER BY t." + sortBy + " " + order;
+        return em.createQuery("SELECT t FROM Torrent t JOIN t.tags tag WHERE tag = :tag " + orderByClause, Torrent.class)
+                .setParameter("tag", tag)
+                .setFirstResult(pageNumber * pageSize)
+                .setMaxResults(pageSize)
+                .getResultList();
+    }
+
+    @Transactional
+    public long countAllByTag(String tag) {
+        return em.createQuery("SELECT COUNT(t) FROM Torrent t JOIN t.tags tag WHERE tag = :tag", Long.class)
+                .setParameter("tag", tag)
+                .getSingleResult();
+    }
+  
+    @Transactional
+    public void deleteTorrent(UUID id) {
+        Torrent torrent = em.find(Torrent.class, id);
+        if (torrent != null) {
+            em.remove(torrent);
+        }
     }
 }

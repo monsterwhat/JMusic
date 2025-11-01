@@ -11,6 +11,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
  
 
@@ -38,7 +39,8 @@ public class MusicUiApi {
 
             // ---- Add "All Songs" button at the top ----
             html.append("<li><button hx-post='/api/music/ui/playlists/0/select' ")
-                    .append("hx-target='#songTable tbody' hx-swap='innerHTML'>")
+                    .append("hx-target='#songTable tbody' hx-swap='innerHTML' ")
+                    .append("hx-on::after-request='handlePlaylistSelection(0, \"All Songs\")'>")
                     .append("All Songs")
                     .append("</button></li>");
 
@@ -51,7 +53,12 @@ public class MusicUiApi {
                 html.append("<li><button hx-post='/api/music/ui/playlists/")
                         .append(p.id)
                         .append("/select' ")
-                        .append("hx-target='#songTable tbody' hx-swap='innerHTML'>")
+                        .append("hx-target='#songTable tbody' hx-swap='innerHTML' ")
+                        .append("hx-on::after-request='handlePlaylistSelection(")
+                        .append(p.id)
+                        .append(", \"")
+                        .append(name)
+                        .append("\")'>")
                         .append(name)
                         .append("</button></li>");
             }
@@ -196,5 +203,109 @@ public class MusicUiApi {
         int m = (int) (seconds / 60);
         int s = (int) (seconds % 60);
         return String.format("%d:%02d", m, s);
+    }
+
+    @GET
+    @Path("/queue-fragment")
+    @Blocking
+    public String queueFragment() {
+        try {
+            List<Song> queue = playbackController.getQueue();
+            if (queue == null) {
+                queue = new ArrayList<>();
+            }
+
+
+
+            Song currentSong = playbackController.getCurrentSong();
+
+            StringBuilder html = new StringBuilder("<tbody>");
+            int index = 0;
+            for (Song s : queue) {
+                if (s == null) {
+                    continue;
+                }
+
+                String title = s.getTitle() != null ? s.getTitle() : "Unknown Title";
+                String artist = s.getArtist() != null ? s.getArtist() : "Unknown Artist";
+
+                boolean isCurrent = currentSong != null && s.id.equals(currentSong.id);
+
+                int originalIndex = queue.size() - 1 - index;
+
+                html.append("<tr class='").append(isCurrent ? "has-background-grey" : "").append("'>")
+                        .append("<td class='is-size-7' style='width: 75%;'>").append(title).append("<br><span class='has-text-grey-light is-size-7'>").append(artist).append("</span></td>")
+                        .append("<td class='has-text-right' style='width: 25%;'>")
+                        .append("<i class='pi pi-step-forward icon has-text-primary is-clickable' hx-post='/api/music/queue/skip-to/").append(originalIndex).append("' hx-trigger='click' hx-swap='none' hx-on::after-request='htmx.ajax(\"GET\", \"/api/music/ui/queue-fragment\", {target: \"#songQueueTable tbody\", swap: \"innerHTML\"})' hx-headers='{\"Content-Type\": \"application/json\"}'></i>")
+                        .append("<i class='pi pi-times icon has-text-danger is-clickable' hx-post='/api/music/queue/remove/").append(originalIndex).append("' hx-trigger='click' hx-swap='none' hx-on::after-request='htmx.ajax(\"GET\", \"/api/music/ui/queue-fragment\", {target: \"#songQueueTable tbody\", swap: \"innerHTML\"})' hx-headers='{\"Content-Type\": \"application/json\"}'></i>")
+                        .append("</td>")
+                        .append("</tr>");
+                index++;
+            }
+
+            html.append("</tbody>");
+            return html.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "<tbody></tbody>"; // Return empty table body on error
+        }
+    }
+
+    @GET
+    @Path("/all-songs-for-playlist-fragment/{playlistId}")
+    @Blocking
+    public String allSongsForPlaylistFragment(@PathParam("playlistId") Long playlistId) {
+        try {
+            List<Song> allSongs = playbackController.getSongs();
+            if (allSongs == null) {
+                allSongs = new ArrayList<>();
+            }
+
+            Playlist currentPlaylist = null;
+            if (playlistId != null && playlistId != 0) {
+                currentPlaylist = playbackController.findPlaylist(playlistId);
+            }
+
+            if (currentPlaylist == null) {
+                return ""; // Don't show this fragment if no playlist is selected
+            }
+
+            StringBuilder html = new StringBuilder("<table class='table is-fullwidth is-hoverable is-striped'>");
+            html.append("<thead><tr><th>Title</th><th>Artist</th><th>Duration</th><th>Action</th></tr></thead><tbody>");
+
+            for (Song s : allSongs) {
+                if (s == null) {
+                    continue;
+                }
+
+                String title = s.getTitle() != null ? s.getTitle() : "Unknown Title";
+                String artist = s.getArtist() != null ? s.getArtist() : "Unknown Artist";
+                int duration = s.getDurationSeconds() >= 0 ? s.getDurationSeconds() : 0;
+
+                html.append("<tr>")
+                        .append("<td>").append(title).append("</td>")
+                        .append("<td>").append(artist).append("</td>")
+                        .append("<td>").append(formatTime(duration)).append("</td>")
+                        .append("<td>")
+                        .append("<button class='button is-small is-primary' hx-post='/api/music/playback/select/").append(s.id).append("' hx-trigger='click' hx-swap='none'>")
+                        .append("<i class='pi pi-play'></i>")
+                        .append("</button>");
+
+                if (!currentPlaylist.getSongs().contains(s)) {
+                    html.append("<button class='button is-small is-success' hx-post='/api/music/playlists/").append(playlistId).append("/songs/").append(s.id).append("' hx-trigger='click' hx-swap='outerHTML' hx-target='this'>")
+                            .append("<i class='pi pi-plus'></i>")
+                            .append("</button>");
+                }
+
+                html.append("</td>")
+                        .append("</tr>");
+            }
+
+            html.append("</tbody></table>");
+            return html.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ""; // Return empty on error
+        }
     }
 }
