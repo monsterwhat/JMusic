@@ -114,6 +114,16 @@
                                                     <button id="reloadMetadata" class="button is-info">Reload All Metadata</button>
                                                     <button id="deleteDuplicates" class="button is-warning">Delete Duplicates</button>
                                                 </div>
+                                                <div class="field mt-5">
+                                                    <label class="switch is-info">
+                                                        <input id="runAsServiceToggle" type="checkbox" name="runAsServiceToggle"
+                                                               hx-post="/api/settings/toggle-run-as-service"
+                                                               hx-trigger="change"
+                                                               hx-swap="none">
+                                                        <span class="check"></span>
+                                                        <span class="control-label has-text-white">Run as Service</span>
+                                                    </label>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -134,40 +144,14 @@
                                                                                 <div class="card-content" id="dataManagementContent">
                                                                                     <p class="subtitle has-text-white">Manage application data.</p>
                                                                                     <div class="buttons">
-                                                                                        <button id="clearLogs" class="button is-danger">Clear Logs</button>
                                                                                         <button id="clearSongs" class="button is-warning">Clear Songs DB</button>
+                                                                                        <button id="clearPlaybackHistory" hx-post="/api/settings/clearPlaybackHistory" class="button is-danger">Clear Playback History</button>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
 
-                                    <!-- Application Settings Card -->
-                                    <div class="column is-one-third">
-                                        <div class="card has-background-grey-darker has-text-white">
-                                            <header class="card-header">
-                                                <p class="card-header-title has-text-white">
-                                                    Application Settings
-                                                </p>
-                                                <button class="card-header-icon" aria-label="more options" id="toggleApplicationSettingsBtn">
-                                                    <span class="icon">
-                                                        <i class="pi pi-angle-down" aria-hidden="true"></i>
-                                                    </span>
-                                                </button>
-                                            </header>
-                                            <div class="card-content" id="applicationSettingsContent">
-                                                <div class="field">
-                                                    <label class="switch is-info">
-                                                        <input id="runAsServiceToggle" type="checkbox" name="runAsServiceToggle"
-                                                               hx-post="/api/settings/toggle-run-as-service"
-                                                               hx-trigger="change"
-                                                               hx-swap="none">
-                                                        <span class="check"></span>
-                                                        <span class="control-label has-text-white">Run as Service</span>
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+
                                     
                                     <!-- Logs Card -->
                                     <div class="column is-one-third">
@@ -185,6 +169,9 @@
                                             <div class="card-content" id="logsCardContent">
                                                 <div style="max-height: 200px; overflow-y: auto;" id="logsPanel">
                                                     <!-- JS will populate logs here -->
+                                                </div>
+                                                <div class="buttons mt-3">
+                                                    <button id="clearLogs" class="button is-danger">Clear Logs</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -303,6 +290,23 @@
         <script src="/js/musicBar.js"></script>
         <script src="/js/settings.js"></script>
         <script src="/js/navbar.js"></script>
+
+        <!-- Run as Service Info Modal -->
+        <div id="runAsServiceModal" class="modal">
+            <div class="modal-background"></div>
+            <div class="modal-card">
+                <header class="modal-card-head">
+                    <p class="modal-card-title">Run as Service Information</p>
+                    <button class="delete" aria-label="close"></button>
+                </header>
+                <section class="modal-card-body">
+                    <p>Enabling "Run as Service" allows this application to act as a music server, enabling other devices on the network (or with a connection to this device) to stream music from it. When "Run as Service" is enabled, the application will not automatically shut down when all connections close (i.e., no sessions left, either desktop or mobile) but rather will just exist in the background with the tray icon allowing you to close the app manually when desired. Please note that enabling this option does NOT make the application start automatically on system startup; you will still need to launch it manually.</p>
+                </section>
+                <footer class="modal-card-foot is-flex is-justify-content-center">
+                    <button class="button is-success">Got it!</button>
+                </footer>
+            </div>
+        </div>
 
     </body>
 </html>

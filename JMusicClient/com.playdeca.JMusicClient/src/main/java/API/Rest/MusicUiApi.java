@@ -234,10 +234,10 @@ public class MusicUiApi {
                 int originalIndex = queue.size() - 1 - index;
 
                 html.append("<tr class='").append(isCurrent ? "has-background-grey" : "").append("'>")
-                        .append("<td class='is-size-7' style='width: 75%;'>").append(title).append("<br><span class='has-text-grey-light is-size-7'>").append(artist).append("</span></td>")
+                        .append("<td class='is-size-7' style='width: 75%;'>").append(title).append("<br><span class='has-text-success is-size-7'>").append(artist).append("</span></td>")
                         .append("<td class='has-text-right' style='width: 25%;'>")
-                        .append("<i class='pi pi-step-forward icon has-text-primary is-clickable' hx-post='/api/music/queue/skip-to/").append(originalIndex).append("' hx-trigger='click' hx-swap='none' hx-on::after-request='htmx.ajax(\"GET\", \"/api/music/ui/queue-fragment\", {target: \"#songQueueTable tbody\", swap: \"innerHTML\"})' hx-headers='{\"Content-Type\": \"application/json\"}'></i>")
-                        .append("<i class='pi pi-times icon has-text-danger is-clickable' hx-post='/api/music/queue/remove/").append(originalIndex).append("' hx-trigger='click' hx-swap='none' hx-on::after-request='htmx.ajax(\"GET\", \"/api/music/ui/queue-fragment\", {target: \"#songQueueTable tbody\", swap: \"innerHTML\"})' hx-headers='{\"Content-Type\": \"application/json\"}'></i>")
+                        .append("<i class='pi pi-step-forward icon has-text-primary is-clickable' hx-post='/api/music/queue/skip-to/").append(index).append("' hx-trigger='click' hx-swap='none' hx-on::after-request='htmx.ajax(\"GET\", \"/api/music/ui/queue-fragment\", {target: \"#songQueueTable tbody\", swap: \"innerHTML\"})' hx-headers='{\"Content-Type\": \"application/json\"}'></i>")
+                        .append("<i class='pi pi-times icon has-text-danger is-clickable' hx-post='/api/music/queue/remove/").append(index).append("' hx-trigger='click' hx-swap='none' hx-on::after-request='htmx.ajax(\"GET\", \"/api/music/ui/queue-fragment\", {target: \"#songQueueTable tbody\", swap: \"innerHTML\"})' hx-headers='{\"Content-Type\": \"application/json\"}'></i>")
                         .append("</td>")
                         .append("</tr>");
                 index++;

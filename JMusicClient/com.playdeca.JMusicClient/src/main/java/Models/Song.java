@@ -17,6 +17,11 @@ public class Song extends PanacheEntity {
     private String path; // local file path or URL
     private String coverImagePath;
     private String genre;
+    private String artworkBase64;
+    private java.time.LocalDateTime dateAdded;
+
+    @Transient
+    private byte[] artwork;
 
     // Playlist foreign key is managed by @JoinColumn in Playlist
 }

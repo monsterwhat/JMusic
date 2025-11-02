@@ -326,11 +326,16 @@ public class MusicApi {
 
     @POST
     @Path("/queue/clear")
-    @Consumes(MediaType.WILDCARD)
-    public Response clearQueue() {
-        playbackController.clearQueue();
-        return Response.ok(ApiResponse.success("Queue cleared")).build();
+        @Consumes(MediaType.WILDCARD)
+        public Response clearQueue() {
+            playbackController.clearQueue();
+            return Response.ok(ApiResponse.success("Queue cleared")).build();
+        }
+    
+        @GET
+        @Path("/history")
+        public Response getHistory() {
+            return Response.ok(ApiResponse.success(playbackController.getHistory())).build();
+        }
     }
-
-}
 

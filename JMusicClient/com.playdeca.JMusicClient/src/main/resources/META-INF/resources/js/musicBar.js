@@ -295,6 +295,7 @@ function UpdateAudioSource(song, play = false, backendTime = 0) {
             };
             slider.oninput = e => {
                 const vol = parseInt(e.target.value, 10) / 100;
+                musicState.volume = vol;
                 audio.volume = vol;
                 sendWS('volume', {value: vol});
             };

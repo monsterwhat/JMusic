@@ -9,13 +9,14 @@ import Models.Song;
 import Services.SettingsService;
 import Services.SongService;
 
-import jakarta.enterprise.context.ApplicationScoped; 
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.io.File;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,6 +24,7 @@ import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.audio.mp3.MP3File;
 import org.jaudiotagger.tag.FieldKey;
 import org.jaudiotagger.tag.Tag;
+import org.jaudiotagger.tag.datatype.Artwork;
 
 @ApplicationScoped
 public class SettingsController implements Serializable {
@@ -95,6 +97,7 @@ public class SettingsController implements Serializable {
                     if (song == null) {
                         song = new Song();
                         song.setPath(relativePath);
+                        song.setDateAdded(java.time.LocalDateTime.now()); // Set dateAdded only for new songs
                     }
 
                     MP3File mp3File = (MP3File) AudioFileIO.read(file);
@@ -104,6 +107,20 @@ public class SettingsController implements Serializable {
                         song.setTitle(tag.getFirst(FieldKey.TITLE));
                         song.setArtist(tag.getFirst(FieldKey.ARTIST));
                         song.setAlbum(tag.getFirst(FieldKey.ALBUM));
+
+                        // Extract artwork
+                        try {
+                            Artwork artwork = tag.getFirstArtwork();
+                            if (artwork != null) {
+                                byte[] imageData = artwork.getBinaryData();
+                                song.setArtworkBase64(java.util.Base64.getEncoder().encodeToString(imageData));
+                            } else {
+                                song.setArtworkBase64(null); // Clear if no artwork found
+                            }
+                        } catch (Exception artworkException) {
+                            addLog("WARNING: Failed to extract artwork for " + file.getName() + ": " + artworkException.getMessage());
+                            song.setArtworkBase64(null); // Ensure it's null on error
+                        }
                     } else {
                         String fileName = file.getName();
                         if (fileName.toLowerCase().endsWith(".mp3")) {
@@ -111,6 +128,7 @@ public class SettingsController implements Serializable {
                         }
                         song.setTitle(fileName);
                         song.setArtist("Unknown Artist");
+                        song.setArtworkBase64(null); // No tags, no artwork
                     }
                     int trackLength = mp3File.getAudioHeader().getTrackLength();
                     addLog("DEBUG: Read duration for " + file.getName() + ": " + trackLength + " seconds.");
@@ -237,6 +255,20 @@ public class SettingsController implements Serializable {
                         song.setTitle(tag.getFirst(FieldKey.TITLE));
                         song.setArtist(tag.getFirst(FieldKey.ARTIST));
                         song.setAlbum(tag.getFirst(FieldKey.ALBUM));
+
+                        // Extract artwork
+                        try {
+                            Artwork artwork = tag.getFirstArtwork();
+                            if (artwork != null) {
+                                byte[] imageData = artwork.getBinaryData();
+                                song.setArtworkBase64(java.util.Base64.getEncoder().encodeToString(imageData));
+                            } else {
+                                song.setArtworkBase64(null); // Clear if no artwork found
+                            }
+                        } catch (Exception artworkException) {
+                            addLog("WARNING: Failed to extract artwork for " + song.getPath() + " during reload: " + artworkException.getMessage());
+                            song.setArtworkBase64(null); // Ensure it's null on error
+                        }
                     } else {
                         String fileName = songFile.getName();
                         if (fileName.toLowerCase().endsWith(".mp3")) {
@@ -244,6 +276,7 @@ public class SettingsController implements Serializable {
                         }
                         song.setTitle(fileName);
                         song.setArtist("Unknown Artist");
+                        song.setArtworkBase64(null); // No tags, no artwork
                     }
                     int trackLength = mp3File.getAudioHeader().getTrackLength();
                     addLog("DEBUG: Reloaded duration for " + song.getPath() + ": " + trackLength + " seconds.");

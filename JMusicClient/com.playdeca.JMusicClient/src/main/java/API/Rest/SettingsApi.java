@@ -4,6 +4,7 @@ import API.ApiResponse;
 import Controllers.SettingsController;
 import Models.Settings;
 import Models.Song;
+import Services.PlaybackHistoryService;
 
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -20,6 +21,9 @@ public class SettingsApi {
 
     @Inject
     private SettingsController settingsController;
+
+    @Inject
+    private PlaybackHistoryService playbackHistoryService;
 
     // -----------------------------
     // GET CURRENT SETTINGS
@@ -86,6 +90,17 @@ public class SettingsApi {
     @Transactional
     public Response getLogs() {
         return Response.ok(ApiResponse.success(settingsController.getLogs())).build();
+    }
+
+    // -----------------------------
+    // CLEAR PLAYBACK HISTORY
+    // -----------------------------
+    @POST
+    @Path("/clearPlaybackHistory")
+    @Transactional
+    public Response clearPlaybackHistory() {
+        playbackHistoryService.clearHistory();
+        return Response.ok(ApiResponse.success("Playback history cleared")).build();
     }
 
     // -----------------------------

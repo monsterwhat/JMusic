@@ -220,10 +220,6 @@ window.refreshSettingsUI = async function () {
         if (torrentDiscoveryToggle)
             torrentDiscoveryToggle.checked = json.data.torrentDiscoveryEnabled;
 
-        const runAsServiceToggle = document.getElementById("runAsServiceToggle");
-        if (runAsServiceToggle)
-            runAsServiceToggle.checked = json.data.runAsService;
-
     } else {
         console.error("[Settings] Failed to refresh settings UI:", json.error);
     }
@@ -235,19 +231,46 @@ window.refreshSettingsUI = async function () {
         const icon = button.querySelector('i');
 
         if (content && icon) {
-            content.classList.toggle('is-hidden');
+            const isHidden = content.classList.toggle('is-hidden');
             icon.classList.toggle('pi-angle-down');
             icon.classList.toggle('pi-angle-up');
+            localStorage.setItem(`cardState-${contentId}`, isHidden);
         }
     };
 
+    // Generic confirmation dialog
+    function showConfirmationDialog(message, callback) {
+        if (confirm(message)) {
+            callback();
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById("resetLibrary").onclick = () => window.resetLibrary();
+        // Load saved card states
+        ['libraryManagementContent', 'dataManagementContent', 'logsCardContent', 'browseManagementContent'].forEach(contentId => {
+            const isHidden = localStorage.getItem(`cardState-${contentId}`);
+            const content = document.getElementById(contentId);
+            const button = document.getElementById(`toggle${contentId.charAt(0).toUpperCase() + contentId.slice(1)}Btn`);
+
+            if (content && isHidden === 'true') {
+                content.classList.add('is-hidden');
+                if (button) {
+                    const icon = button.querySelector('i');
+                    if (icon) {
+                        icon.classList.remove('pi-angle-down');
+                        icon.classList.add('pi-angle-up');
+                    }
+                }
+            }
+        });
+
+        document.getElementById("resetLibrary").onclick = () => showConfirmationDialog("Are you sure you want to reset the library path?", window.resetLibrary);
         document.getElementById("scanLibrary").onclick = () => window.scanLibrary();
-        document.getElementById("clearLogs").onclick = () => window.clearLogs();
-        document.getElementById("clearSongs").onclick = () => window.clearSongsDB();
-        document.getElementById("reloadMetadata").onclick = () => window.reloadMetadata();
-        document.getElementById("deleteDuplicates").onclick = () => window.deleteDuplicates();
+        document.getElementById("clearLogs").onclick = () => showConfirmationDialog("Are you sure you want to clear all logs?", window.clearLogs);
+        document.getElementById("clearSongs").onclick = () => showConfirmationDialog("Are you sure you want to clear all songs from the database? This action cannot be undone.", window.clearSongsDB);
+        document.getElementById("clearPlaybackHistory").onclick = () => showConfirmationDialog("Are you sure you want to clear the playback history? This action cannot be undone.", () => fetch('/api/settings/clearPlaybackHistory', {method: 'POST'}));
+        document.getElementById("reloadMetadata").onclick = () => showConfirmationDialog("Are you sure you want to reload all song metadata? This might take a while.", window.reloadMetadata);
+        document.getElementById("deleteDuplicates").onclick = () => showConfirmationDialog("Are you sure you want to delete duplicate songs? This action cannot be undone.", window.deleteDuplicates);
 
         // Attach event listeners for the new card header toggles
         const toggleLibraryManagementBtn = document.getElementById("toggleLibraryManagementBtn");
@@ -258,11 +281,6 @@ window.refreshSettingsUI = async function () {
         const toggleDataManagementBtn = document.getElementById("toggleDataManagementBtn");
         if (toggleDataManagementBtn) {
             toggleDataManagementBtn.onclick = (event) => window.toggleCardContent(event.currentTarget, "dataManagementContent");
-        }
-
-        const toggleApplicationSettingsBtn = document.getElementById("toggleApplicationSettingsBtn");
-        if (toggleApplicationSettingsBtn) {
-            toggleApplicationSettingsBtn.onclick = (event) => window.toggleCardContent(event.currentTarget, "applicationSettingsContent");
         }
 
         const toggleLogsBtn = document.getElementById("toggleLogsBtn");
@@ -292,6 +310,24 @@ window.refreshSettingsUI = async function () {
 
         window.refreshSettingsUI?.();
         window.setupLogWebSocket?.();
+
+        const runAsServiceToggle = document.getElementById("runAsServiceToggle");
+        const runAsServiceModal = document.getElementById("runAsServiceModal");
+        const modalCloseButtons = runAsServiceModal ? runAsServiceModal.querySelectorAll('.delete, .button.is-success') : [];
+
+        if (runAsServiceToggle) {
+            runAsServiceToggle.addEventListener('change', () => {
+                if (runAsServiceToggle.checked) {
+                    runAsServiceModal?.classList.add('is-active');
+                }
+            });
+        }
+
+        modalCloseButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                runAsServiceModal?.classList.remove('is-active');
+            });
+        });
 
         // Navbar burger functionality
         const burger = document.querySelector('.navbar-burger');
