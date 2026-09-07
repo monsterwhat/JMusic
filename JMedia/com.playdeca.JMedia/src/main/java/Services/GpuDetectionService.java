@@ -48,6 +48,12 @@ public class GpuDetectionService {
     }
 
     public synchronized BestGpuSelection getBestGpuSelection() {
+        // CDI @ApplicationScoped beans initialize lazily: @PostConstruct only fires on
+        // first use. Without this guard every caller before that gets null, which NPEs
+        // in getBestVaaPiDevicePath()/getBestQsvDevicePath() and blanks /gpu-info.
+        if (bestSelection == null) {
+            detectGpus();
+        }
         return bestSelection;
     }
 

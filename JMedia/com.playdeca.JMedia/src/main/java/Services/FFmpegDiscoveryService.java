@@ -508,11 +508,38 @@ public class FFmpegDiscoveryService {
         if (ffmpeg == null) return false;
         
         try {
-            ProcessBuilder pb = new ProcessBuilder(
-                ffmpeg, "-v", "error", "-hide_banner",
-                "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
-                "-c:v", encoder, "-frames:v", "1", "-f", "null", "-"
-            );
+            // VAAPI/QSV encoders cannot consume software frames directly: they need an
+            // initialized hardware device plus an explicit upload of frames to the GPU.
+            // Probing them like software encoders always fails and wrongly blacklists
+            // working hardware (e.g. AMD VAAPI on Linux reports only SW codecs).
+            ProcessBuilder pb;
+            if (encoder.endsWith("_vaapi")) {
+                String device = getBestVaaPiDevicePath();
+                String hwDevice = (device != null && !device.isBlank())
+                    ? "vaapi=va:" + device
+                    : "vaapi";
+                pb = new ProcessBuilder(
+                    ffmpeg, "-v", "error", "-hide_banner",
+                    "-init_hw_device", hwDevice,
+                    "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+                    "-vf", "format=nv12,hwupload",
+                    "-c:v", encoder, "-frames:v", "1", "-f", "null", "-"
+                );
+            } else if (encoder.endsWith("_qsv")) {
+                pb = new ProcessBuilder(
+                    ffmpeg, "-v", "error", "-hide_banner",
+                    "-init_hw_device", "qsv=hw",
+                    "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+                    "-vf", "format=nv12,hwupload=extra_hw_frames=64",
+                    "-c:v", encoder, "-frames:v", "1", "-f", "null", "-"
+                );
+            } else {
+                pb = new ProcessBuilder(
+                    ffmpeg, "-v", "error", "-hide_banner",
+                    "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+                    "-c:v", encoder, "-frames:v", "1", "-f", "null", "-"
+                );
+            }
             pb.redirectErrorStream(true);
             Process p = pb.start();
             boolean finished = p.waitFor(15, java.util.concurrent.TimeUnit.SECONDS);
